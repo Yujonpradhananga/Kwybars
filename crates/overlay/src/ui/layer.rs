@@ -2,7 +2,7 @@ use gtk::gdk;
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use kwybars_common::config::{
-    HorizontalAlignment, OverlayConfig, OverlayPosition, VerticalAlignment,
+    HorizontalAlignment, OverlayConfig, OverlayLayer, OverlayPosition, VerticalAlignment,
 };
 
 pub fn apply_default_size(window: &gtk::ApplicationWindow, overlay: &OverlayConfig) {
@@ -50,7 +50,11 @@ pub fn configure_layer_shell(window: &gtk::ApplicationWindow, overlay: &OverlayC
 
     window.init_layer_shell();
     window.set_namespace(Some("kwybars"));
-    window.set_layer(Layer::Top);
+    window.set_layer(match overlay.layer {
+        OverlayLayer::Background => Layer::Background,
+        OverlayLayer::Bottom => Layer::Bottom,
+        OverlayLayer::Top => Layer::Top,
+    });
     window.set_keyboard_mode(KeyboardMode::None);
     window.set_exclusive_zone(0);
 

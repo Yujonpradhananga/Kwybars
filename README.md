@@ -12,6 +12,7 @@ Current status: GTK4 + layer-shell + live audio backend scaffold.
 - GTK4 application window for visualizer rendering.
 - Wayland layer-shell anchoring via `gtk4-layer-shell`.
 - Edge placement from config: `bottom`, `top`, `left`, `right`.
+- Configurable overlay layer mode: `background`, `bottom`, `top`.
 - Configurable overlay size and alignment.
 - Live frame backend with selectable input:
   - `cava`: primary/default backend
@@ -57,11 +58,12 @@ Config path resolution order:
 3. `~/.config/kwybars/config.toml`
 4. `./kwybars.toml`
 
-### Full-width bottom visualizer (default style)
+### Full-width bottom visualizer behind windows (default style)
 
 ```toml
 [overlay]
 position = "bottom"
+layer = "background" # background | bottom | top
 anchor_margin = 12
 full_length = true
 height = 120
@@ -72,6 +74,13 @@ bars = 48
 bar_width = 6
 gap = 3
 framerate = 60
+```
+
+### Keep visualizer above windows
+
+```toml
+[overlay]
+layer = "top"
 ```
 
 ### Fixed-width bottom visualizer, centered

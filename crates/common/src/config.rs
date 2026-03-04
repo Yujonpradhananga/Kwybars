@@ -27,6 +27,26 @@ impl OverlayPosition {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OverlayLayer {
+    Background,
+    Bottom,
+    Top,
+}
+
+impl OverlayLayer {
+    fn parse(value: &str) -> Result<Self, ConfigLoadError> {
+        match value {
+            "background" => Ok(Self::Background),
+            "bottom" => Ok(Self::Bottom),
+            "top" => Ok(Self::Top),
+            _ => Err(ConfigLoadError::Parse(format!(
+                "unknown overlay.layer value: {value}"
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HorizontalAlignment {
     Left,
     Center,
@@ -69,6 +89,7 @@ impl VerticalAlignment {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OverlayConfig {
     pub position: OverlayPosition,
+    pub layer: OverlayLayer,
     pub anchor_margin: u32,
     pub full_length: bool,
     pub width: u32,
@@ -81,6 +102,7 @@ impl Default for OverlayConfig {
     fn default() -> Self {
         Self {
             position: OverlayPosition::Bottom,
+            layer: OverlayLayer::Background,
             anchor_margin: 12,
             full_length: true,
             width: 800,
@@ -249,6 +271,7 @@ fn parse_overlay_key(
 ) -> Result<(), ConfigLoadError> {
     match key {
         "position" => overlay.position = OverlayPosition::parse(value)?,
+        "layer" => overlay.layer = OverlayLayer::parse(value)?,
         "anchor_margin" => overlay.anchor_margin = parse_u32(key, value)?,
         "full_length" => overlay.full_length = parse_bool(key, value)?,
         "width" => overlay.width = parse_u32(key, value)?,
@@ -320,8 +343,8 @@ fn parse_bool(key: &str, value: &str) -> Result<bool, ConfigLoadError> {
 #[cfg(test)]
 mod tests {
     use super::{
-        AppConfig, HorizontalAlignment, OverlayPosition, VerticalAlignment, VisualizerBackend,
-        parse_config,
+        AppConfig, HorizontalAlignment, OverlayLayer, OverlayPosition, VerticalAlignment,
+        VisualizerBackend, parse_config,
     };
 
     #[test]
@@ -329,6 +352,7 @@ mod tests {
         let raw = r#"
         [overlay]
         position = "top"
+        layer = "top"
         anchor_margin = 20
         full_length = false
         width = 1200
@@ -354,6 +378,7 @@ mod tests {
             Err(err) => panic!("valid config should parse, got error: {err}"),
         };
         assert_eq!(parsed.overlay.position, OverlayPosition::Top);
+        assert_eq!(parsed.overlay.layer, OverlayLayer::Top);
         assert_eq!(parsed.overlay.anchor_margin, 20);
         assert!(!parsed.overlay.full_length);
         assert_eq!(parsed.overlay.width, 1200);
