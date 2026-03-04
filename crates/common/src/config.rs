@@ -42,7 +42,28 @@ impl Default for OverlayConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VisualizerBackend {
+    Auto,
+    Cava,
+    Dummy,
+}
+
+impl VisualizerBackend {
+    fn parse(value: &str) -> Result<Self, ConfigLoadError> {
+        match value {
+            "auto" => Ok(Self::Auto),
+            "cava" => Ok(Self::Cava),
+            "dummy" => Ok(Self::Dummy),
+            _ => Err(ConfigLoadError::Parse(format!(
+                "unknown visualizer.backend value: {value}"
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VisualizerConfig {
+    pub backend: VisualizerBackend,
     pub bars: usize,
     pub bar_width: u32,
     pub gap: u32,
@@ -52,6 +73,7 @@ pub struct VisualizerConfig {
 impl Default for VisualizerConfig {
     fn default() -> Self {
         Self {
+            backend: VisualizerBackend::Auto,
             bars: 48,
             bar_width: 6,
             gap: 3,
@@ -181,6 +203,7 @@ fn parse_visualizer_key(
     value: &str,
 ) -> Result<(), ConfigLoadError> {
     match key {
+        "backend" => visualizer.backend = VisualizerBackend::parse(value)?,
         "bars" => visualizer.bars = parse_usize(key, value)?,
         "bar_width" => visualizer.bar_width = parse_u32(key, value)?,
         "gap" => visualizer.gap = parse_u32(key, value)?,
@@ -208,7 +231,7 @@ fn parse_usize(key: &str, value: &str) -> Result<usize, ConfigLoadError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{AppConfig, OverlayPosition, parse_config};
+    use super::{AppConfig, OverlayPosition, VisualizerBackend, parse_config};
 
     #[test]
     fn parses_valid_config() {
@@ -218,6 +241,7 @@ mod tests {
         anchor_margin = 20
 
         [visualizer]
+        backend = "dummy"
         bars = 64
         bar_width = 5
         gap = 2
@@ -230,6 +254,7 @@ mod tests {
         };
         assert_eq!(parsed.overlay.position, OverlayPosition::Top);
         assert_eq!(parsed.overlay.anchor_margin, 20);
+        assert_eq!(parsed.visualizer.backend, VisualizerBackend::Dummy);
         assert_eq!(parsed.visualizer.bars, 64);
         assert_eq!(parsed.visualizer.bar_width, 5);
         assert_eq!(parsed.visualizer.gap, 2);

@@ -9,7 +9,7 @@ use std::time::Duration;
 use gtk::glib;
 use gtk::prelude::*;
 use kwybars_common::config::{AppConfig, OverlayPosition};
-use kwybars_engine::pipeline::{DummySineSource, FrameSource};
+use kwybars_engine::live::LiveFrameStream;
 
 const HORIZONTAL_THICKNESS: i32 = 120;
 const VERTICAL_THICKNESS: i32 = 150;
@@ -59,7 +59,8 @@ fn build_drawing_area(config: &AppConfig) -> gtk::DrawingArea {
         drawing_area.set_content_width(VERTICAL_THICKNESS);
     }
 
-    let source = Rc::new(RefCell::new(DummySineSource::new(bar_count)));
+    let stream = Rc::new(LiveFrameStream::spawn(config.visualizer.clone()));
+    eprintln!("kwybars: using {:?} frame source", stream.source_kind());
     let bar_values = Rc::new(RefCell::new(vec![0.0_f64; bar_count]));
 
     {
@@ -101,17 +102,18 @@ fn build_drawing_area(config: &AppConfig) -> gtk::DrawingArea {
     }
 
     {
-        let source_for_tick = Rc::clone(&source);
+        let stream_for_tick = Rc::clone(&stream);
         let values_for_tick = Rc::clone(&bar_values);
         let drawing_area_for_tick = drawing_area.clone();
         glib::timeout_add_local(Duration::from_millis(interval_ms), move || {
-            let frame = source_for_tick.borrow_mut().next_frame();
+            let frame = stream_for_tick.latest_frame();
             let mut target = values_for_tick.borrow_mut();
+            if target.len() != frame.bars.len() {
+                target.resize(frame.bars.len(), 0.0);
+            }
 
-            for (idx, value) in frame.bars.into_iter().enumerate() {
-                if let Some(slot) = target.get_mut(idx) {
-                    *slot = f64::from(value);
-                }
+            for (slot, value) in target.iter_mut().zip(frame.bars.iter()) {
+                *slot = f64::from(*value);
             }
 
             drawing_area_for_tick.queue_draw();

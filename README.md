@@ -5,25 +5,27 @@ Kwybars is a Wayland-first desktop audio visualizer for Linux.
 It is inspired by terminal visualizers like `cava`, but the target UX is a real
 transparent desktop overlay anchored to a screen edge.
 
-Current status: GTK4 + layer-shell scaffold.
+Current status: GTK4 + layer-shell + live audio backend scaffold.
 
 ## Current Features
 
 - GTK4 application window for visualizer rendering.
 - Wayland layer-shell anchoring via `gtk4-layer-shell`.
 - Edge placement from config: `bottom`, `top`, `left`, `right`.
-- Animated dummy bars rendered with `DrawingArea`.
+- Live frame backend with `auto` source selection:
+  - tries `cava` raw output first
+  - falls back to dummy animation when unavailable
 
 Not implemented yet:
 
-- Real audio capture backend (PipeWire/libcava).
+- Native PipeWire capture path (without `cava`).
 - Multi-monitor control.
 - User theming controls.
 
 ## Requirements (Arch Linux)
 
 ```bash
-sudo pacman -S --needed rust gtk4 gtk4-layer-shell
+sudo pacman -S --needed rust gtk4 gtk4-layer-shell cava
 ```
 
 ## Build
@@ -60,6 +62,7 @@ position = "bottom"
 anchor_margin = 12
 
 [visualizer]
+backend = "auto" # auto | cava | dummy
 bars = 48
 bar_width = 6
 gap = 3
@@ -69,5 +72,5 @@ framerate = 60
 ## Workspace Layout
 
 - `crates/common`: shared config and frame model.
-- `crates/engine`: visualizer frame pipeline contracts/stubs.
+- `crates/engine`: visualizer frame pipeline and live source backends.
 - `crates/overlay`: GTK overlay app (windowing + rendering).
