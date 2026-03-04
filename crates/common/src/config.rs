@@ -80,7 +80,7 @@ pub struct VisualizerConfig {
 impl Default for VisualizerConfig {
     fn default() -> Self {
         Self {
-            backend: VisualizerBackend::Auto,
+            backend: VisualizerBackend::Cava,
             bars: 48,
             bar_width: 6,
             gap: 3,

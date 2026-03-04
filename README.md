@@ -13,10 +13,10 @@ Current status: GTK4 + layer-shell + live audio backend scaffold.
 - Wayland layer-shell anchoring via `gtk4-layer-shell`.
 - Edge placement from config: `bottom`, `top`, `left`, `right`.
 - Live frame backend with selectable input:
-  - `pipewire`: reads raw PCM from `pw-cat`
-  - `cava`: reads raw bar stream from `cava`
+  - `cava`: primary/default backend
+  - `pipewire`: fallback or explicit backend
   - `dummy`: synthetic animation
-  - `auto`: tries `pipewire`, then `cava`, then `dummy`
+  - `auto`: same priority as default (`cava -> pipewire -> dummy`)
 
 Not implemented yet:
 
@@ -64,13 +64,13 @@ position = "bottom"
 anchor_margin = 12
 
 [visualizer]
-backend = "auto" # auto | pipewire | cava | dummy
+backend = "cava" # default: cava, fallback: pipewire
 bars = 48
 bar_width = 6
 gap = 3
 framerate = 60
 
-# PipeWire tuning (applies when backend = "pipewire" or "auto" picks pipewire)
+# PipeWire tuning (applies when backend = "pipewire" or when fallback activates)
 pipewire_attack = 0.14
 pipewire_decay = 0.975
 pipewire_gain = 1.20
@@ -78,7 +78,7 @@ pipewire_curve = 0.95
 pipewire_neighbor_mix = 0.24
 ```
 
-Softer preset (closer to cava feel):
+Softer PipeWire preset:
 
 ```toml
 [visualizer]

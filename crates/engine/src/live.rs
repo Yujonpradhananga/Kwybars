@@ -66,6 +66,8 @@ impl LiveFrameStream {
             VisualizerBackend::Pipewire => {
                 if spawn_pipewire_thread(Arc::clone(&latest), bar_count, pipewire_tuning).is_ok() {
                     SourceKind::Pipewire
+                } else if spawn_cava_thread(Arc::clone(&latest), bar_count, framerate).is_ok() {
+                    SourceKind::Cava
                 } else {
                     eprintln!("kwybars: falling back to dummy frame source");
                     spawn_dummy_thread(Arc::clone(&latest), bar_count, framerate);
@@ -75,6 +77,10 @@ impl LiveFrameStream {
             VisualizerBackend::Cava => {
                 if spawn_cava_thread(Arc::clone(&latest), bar_count, framerate).is_ok() {
                     SourceKind::Cava
+                } else if spawn_pipewire_thread(Arc::clone(&latest), bar_count, pipewire_tuning)
+                    .is_ok()
+                {
+                    SourceKind::Pipewire
                 } else {
                     eprintln!("kwybars: falling back to dummy frame source");
                     spawn_dummy_thread(Arc::clone(&latest), bar_count, framerate);
@@ -82,10 +88,12 @@ impl LiveFrameStream {
                 }
             }
             VisualizerBackend::Auto => {
-                if spawn_pipewire_thread(Arc::clone(&latest), bar_count, pipewire_tuning).is_ok() {
-                    SourceKind::Pipewire
-                } else if spawn_cava_thread(Arc::clone(&latest), bar_count, framerate).is_ok() {
+                if spawn_cava_thread(Arc::clone(&latest), bar_count, framerate).is_ok() {
                     SourceKind::Cava
+                } else if spawn_pipewire_thread(Arc::clone(&latest), bar_count, pipewire_tuning)
+                    .is_ok()
+                {
+                    SourceKind::Pipewire
                 } else {
                     eprintln!("kwybars: falling back to dummy frame source");
                     spawn_dummy_thread(Arc::clone(&latest), bar_count, framerate);
