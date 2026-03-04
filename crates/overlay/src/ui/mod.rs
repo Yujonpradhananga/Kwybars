@@ -43,6 +43,7 @@ fn build_drawing_area(config: &AppConfig) -> gtk::DrawingArea {
     let bar_count = config.visualizer.bars.max(1);
     let fps = config.visualizer.framerate.max(1);
     let interval_ms = (1000_u64 / u64::from(fps)).max(1);
+    let bar_color = config.visualizer.color_rgba;
 
     let drawing_area = gtk::DrawingArea::new();
     drawing_area.set_widget_name("kwybars-bars");
@@ -76,7 +77,12 @@ fn build_drawing_area(config: &AppConfig) -> gtk::DrawingArea {
                 return;
             }
 
-            ctx.set_source_rgba(0.12, 0.88, 0.68, 0.9);
+            ctx.set_source_rgba(
+                f64::from(bar_color.r),
+                f64::from(bar_color.g),
+                f64::from(bar_color.b),
+                f64::from(bar_color.a),
+            );
 
             if is_horizontal {
                 draw::draw_horizontal_bars(

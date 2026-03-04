@@ -135,6 +135,61 @@ impl VisualizerBackend {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RgbaColor {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+}
+
+impl RgbaColor {
+    fn parse(value: &str) -> Result<Self, ConfigLoadError> {
+        let normalized = value.trim();
+        let raw_components = if normalized.starts_with("rgba(") && normalized.ends_with(')') {
+            &normalized[5..normalized.len() - 1]
+        } else {
+            normalized
+        };
+
+        let parts: Vec<&str> = raw_components.split(',').map(str::trim).collect();
+        if parts.len() != 4 {
+            return Err(ConfigLoadError::Parse(format!(
+                "invalid visualizer.color_rgba value: {value}"
+            )));
+        }
+
+        let mut r = parse_f32("visualizer.color_rgba.r", parts[0])?;
+        let mut g = parse_f32("visualizer.color_rgba.g", parts[1])?;
+        let mut b = parse_f32("visualizer.color_rgba.b", parts[2])?;
+        let a = parse_f32("visualizer.color_rgba.a", parts[3])?.clamp(0.0, 1.0);
+
+        // Allow rgb either in 0.0..1.0 or 0..255 ranges.
+        if r > 1.0 || g > 1.0 || b > 1.0 {
+            r = (r / 255.0).clamp(0.0, 1.0);
+            g = (g / 255.0).clamp(0.0, 1.0);
+            b = (b / 255.0).clamp(0.0, 1.0);
+        } else {
+            r = r.clamp(0.0, 1.0);
+            g = g.clamp(0.0, 1.0);
+            b = b.clamp(0.0, 1.0);
+        }
+
+        Ok(Self { r, g, b, a })
+    }
+}
+
+impl Default for RgbaColor {
+    fn default() -> Self {
+        Self {
+            r: 0.12,
+            g: 0.88,
+            b: 0.68,
+            a: 0.9,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct VisualizerConfig {
     pub backend: VisualizerBackend,
@@ -142,6 +197,7 @@ pub struct VisualizerConfig {
     pub bar_width: u32,
     pub gap: u32,
     pub framerate: u32,
+    pub color_rgba: RgbaColor,
     pub pipewire_attack: f32,
     pub pipewire_decay: f32,
     pub pipewire_gain: f32,
@@ -157,6 +213,7 @@ impl Default for VisualizerConfig {
             bar_width: 6,
             gap: 3,
             framerate: 60,
+            color_rgba: RgbaColor::default(),
             pipewire_attack: 0.14,
             pipewire_decay: 0.975,
             pipewire_gain: 1.20,
@@ -298,6 +355,7 @@ fn parse_visualizer_key(
         "bar_width" => visualizer.bar_width = parse_u32(key, value)?,
         "gap" => visualizer.gap = parse_u32(key, value)?,
         "framerate" => visualizer.framerate = parse_u32(key, value)?,
+        "color_rgba" => visualizer.color_rgba = RgbaColor::parse(value)?,
         "pipewire_attack" => visualizer.pipewire_attack = parse_f32(key, value)?,
         "pipewire_decay" => visualizer.pipewire_decay = parse_f32(key, value)?,
         "pipewire_gain" => visualizer.pipewire_gain = parse_f32(key, value)?,
@@ -366,6 +424,7 @@ mod tests {
         bar_width = 5
         gap = 2
         framerate = 75
+        color_rgba = "rgba(255, 255, 255, 0.5)"
         pipewire_attack = 0.2
         pipewire_decay = 0.9
         pipewire_gain = 1.5
@@ -393,6 +452,10 @@ mod tests {
         assert_eq!(parsed.visualizer.bar_width, 5);
         assert_eq!(parsed.visualizer.gap, 2);
         assert_eq!(parsed.visualizer.framerate, 75);
+        assert!((parsed.visualizer.color_rgba.r - 1.0).abs() < 1e-6);
+        assert!((parsed.visualizer.color_rgba.g - (64.0 / 255.0)).abs() < 1e-6);
+        assert!((parsed.visualizer.color_rgba.b - 0.0).abs() < 1e-6);
+        assert!((parsed.visualizer.color_rgba.a - 0.7).abs() < 1e-6);
         assert_eq!(parsed.visualizer.pipewire_attack, 0.2);
         assert_eq!(parsed.visualizer.pipewire_decay, 0.9);
         assert_eq!(parsed.visualizer.pipewire_gain, 1.5);
