@@ -6,14 +6,38 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
+use gtk::gdk;
 use gtk::glib;
 use gtk::prelude::*;
 use kwybars_common::config::{AppConfig, OverlayPosition, VisualizerColorMode};
 use kwybars_engine::live::LiveFrameStream;
 
-pub fn build_overlay_window(app: &gtk::Application, config: AppConfig) -> gtk::ApplicationWindow {
+pub fn build_overlay_windows(
+    app: &gtk::Application,
+    config: AppConfig,
+) -> Vec<gtk::ApplicationWindow> {
     style::install_css();
 
+    let stream = Rc::new(LiveFrameStream::spawn(config.visualizer.clone()));
+    eprintln!("kwybars: using {:?} frame source", stream.source_kind());
+
+    let monitors = layer::selected_monitors(&config.overlay);
+    if monitors.is_empty() {
+        return vec![build_overlay_window(app, &config, Rc::clone(&stream), None)];
+    }
+
+    monitors
+        .into_iter()
+        .map(|monitor| build_overlay_window(app, &config, Rc::clone(&stream), Some(monitor)))
+        .collect()
+}
+
+fn build_overlay_window(
+    app: &gtk::Application,
+    config: &AppConfig,
+    stream: Rc<LiveFrameStream>,
+    monitor: Option<gdk::Monitor>,
+) -> gtk::ApplicationWindow {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .title("Kwybars")
@@ -24,18 +48,17 @@ pub fn build_overlay_window(app: &gtk::Application, config: AppConfig) -> gtk::A
     window.set_resizable(false);
     window.set_focusable(false);
 
-    let drawing_area = build_drawing_area(&config);
+    let drawing_area = build_drawing_area(config, stream);
     window.set_child(Some(&drawing_area));
 
-    layer::apply_default_size(&window, &config.overlay);
-    layer::configure_layer_shell(&window, &config.overlay);
+    layer::apply_default_size(&window, &config.overlay, monitor.as_ref());
+    layer::configure_layer_shell(&window, &config.overlay, monitor.as_ref());
 
     window.present();
-
     window
 }
 
-fn build_drawing_area(config: &AppConfig) -> gtk::DrawingArea {
+fn build_drawing_area(config: &AppConfig, stream: Rc<LiveFrameStream>) -> gtk::DrawingArea {
     let position = config.overlay.position.clone();
     let is_horizontal = matches!(position, OverlayPosition::Bottom | OverlayPosition::Top);
     let is_left = matches!(position, OverlayPosition::Left);
@@ -69,8 +92,6 @@ fn build_drawing_area(config: &AppConfig) -> gtk::DrawingArea {
         drawing_area.set_vexpand(config.overlay.full_length);
     }
 
-    let stream = Rc::new(LiveFrameStream::spawn(config.visualizer.clone()));
-    eprintln!("kwybars: using {:?} frame source", stream.source_kind());
     let bar_values = Rc::new(RefCell::new(vec![0.0_f64; bar_count]));
 
     {

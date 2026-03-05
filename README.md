@@ -25,7 +25,6 @@ Current status: GTK4 + layer-shell + live audio backend scaffold.
 Not implemented yet:
 
 - Direct in-process PipeWire client (without external `pw-cat`).
-- Multi-monitor control.
 - User theming controls.
 
 ## Requirements (Arch Linux)
@@ -63,6 +62,20 @@ Config path resolution order:
 Config is hot-reloaded automatically while the app is running. You do not need
 to restart after editing `config.toml`.
 
+Optional color override file:
+- `colors.toml` in the same directory as the active `config.toml`.
+- Example default path: `~/.config/kwybars/colors.toml`.
+- Precedence: `colors.toml` overrides `config.toml` for `color_rgba` and `color2_rgba`
+  only when those keys are present in `colors.toml`.
+
+`colors.toml` example:
+
+```toml
+[visualizer]
+color_rgba = "rgba(122, 162, 247, 0.95)"
+color2_rgba = "rgba(187, 154, 247, 0.95)"
+```
+
 ### Full-width bottom visualizer behind windows (default style)
 
 ```toml
@@ -74,6 +87,7 @@ margin_left = 24
 margin_right = 24
 full_length = true
 height = 120
+monitor_mode = "primary" # primary | all | list
 
 [visualizer]
 backend = "cava"
@@ -105,6 +119,24 @@ color2_rgba = "rgba(53, 144, 255, 0.95)"
 [overlay]
 layer = "top"
 ```
+
+### Select monitor targets
+
+```toml
+[overlay]
+monitor_mode = "all"
+```
+
+```toml
+[overlay]
+monitor_mode = "list"
+monitors = ["DP-1", "HDMI-A-1"] # connector names
+```
+
+`primary` uses the first monitor reported by GDK.
+For `monitor_mode = "list"`, each monitor entry can be:
+- Connector name (recommended), e.g. `"DP-1"`
+- 1-based index string, e.g. `"1"`, `"2"`, or `"index:1"`
 
 ### Fixed-width bottom visualizer, centered
 

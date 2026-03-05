@@ -87,6 +87,26 @@ impl VerticalAlignment {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OverlayMonitorMode {
+    Primary,
+    All,
+    List,
+}
+
+impl OverlayMonitorMode {
+    fn parse(value: &str) -> Result<Self, ConfigLoadError> {
+        match value {
+            "primary" => Ok(Self::Primary),
+            "all" => Ok(Self::All),
+            "list" => Ok(Self::List),
+            _ => Err(ConfigLoadError::Parse(format!(
+                "unknown overlay.monitor_mode value: {value}"
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OverlayConfig {
     pub position: OverlayPosition,
     pub layer: OverlayLayer,
@@ -100,6 +120,8 @@ pub struct OverlayConfig {
     pub height: u32,
     pub horizontal_alignment: HorizontalAlignment,
     pub vertical_alignment: VerticalAlignment,
+    pub monitor_mode: OverlayMonitorMode,
+    pub monitors: Vec<String>,
 }
 
 impl Default for OverlayConfig {
@@ -117,6 +139,8 @@ impl Default for OverlayConfig {
             height: 120,
             horizontal_alignment: HorizontalAlignment::Center,
             vertical_alignment: VerticalAlignment::Center,
+            monitor_mode: OverlayMonitorMode::Primary,
+            monitors: Vec::new(),
         }
     }
 }
@@ -259,6 +283,12 @@ pub struct AppConfig {
     pub visualizer: VisualizerConfig,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct VisualizerColorOverrides {
+    pub color_rgba: Option<RgbaColor>,
+    pub color2_rgba: Option<RgbaColor>,
+}
+
 #[derive(Debug)]
 pub enum ConfigLoadError {
     Io(std::io::Error),
@@ -299,6 +329,13 @@ pub fn default_config_path() -> PathBuf {
     PathBuf::from("kwybars.toml")
 }
 
+pub fn default_colors_path(config_path: &Path) -> PathBuf {
+    match config_path.parent() {
+        Some(parent) => parent.join("colors.toml"),
+        None => PathBuf::from("colors.toml"),
+    }
+}
+
 pub fn load_or_default(path: &Path) -> Result<AppConfig, ConfigLoadError> {
     let raw = match fs::read_to_string(path) {
         Ok(value) => value,
@@ -307,6 +344,27 @@ pub fn load_or_default(path: &Path) -> Result<AppConfig, ConfigLoadError> {
     };
 
     parse_config(&raw)
+}
+
+pub fn load_color_overrides(path: &Path) -> Result<VisualizerColorOverrides, ConfigLoadError> {
+    let raw = match fs::read_to_string(path) {
+        Ok(value) => value,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(VisualizerColorOverrides::default());
+        }
+        Err(err) => return Err(ConfigLoadError::Io(err)),
+    };
+
+    parse_color_overrides(&raw)
+}
+
+pub fn apply_color_overrides(config: &mut AppConfig, overrides: VisualizerColorOverrides) {
+    if let Some(color) = overrides.color_rgba {
+        config.visualizer.color_rgba = color;
+    }
+    if let Some(color) = overrides.color2_rgba {
+        config.visualizer.color2_rgba = color;
+    }
 }
 
 fn parse_config(raw: &str) -> Result<AppConfig, ConfigLoadError> {
@@ -332,11 +390,11 @@ fn parse_config(raw: &str) -> Result<AppConfig, ConfigLoadError> {
         };
 
         let key = key.trim();
-        let value = value.trim().trim_matches('"');
+        let value = normalize_value(value);
 
         match section {
-            Some("overlay") => parse_overlay_key(&mut config.overlay, key, value)?,
-            Some("visualizer") => parse_visualizer_key(&mut config.visualizer, key, value)?,
+            Some("overlay") => parse_overlay_key(&mut config.overlay, key, &value)?,
+            Some("visualizer") => parse_visualizer_key(&mut config.visualizer, key, &value)?,
             Some(other) => {
                 return Err(ConfigLoadError::Parse(format!("unknown section [{other}]")));
             }
@@ -349,6 +407,44 @@ fn parse_config(raw: &str) -> Result<AppConfig, ConfigLoadError> {
     }
 
     Ok(config)
+}
+
+fn parse_color_overrides(raw: &str) -> Result<VisualizerColorOverrides, ConfigLoadError> {
+    let mut overrides = VisualizerColorOverrides::default();
+    let mut section: Option<&str> = None;
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            section = Some(&trimmed[1..trimmed.len() - 1]);
+            continue;
+        }
+
+        let Some((key, value)) = trimmed.split_once('=') else {
+            continue;
+        };
+
+        let section_supported =
+            section.is_none() || matches!(section, Some("visualizer") | Some("colors"));
+        if !section_supported {
+            continue;
+        }
+
+        let key = key.trim();
+        let value = normalize_value(value);
+
+        match key {
+            "color_rgba" => overrides.color_rgba = Some(RgbaColor::parse(&value)?),
+            "color2_rgba" => overrides.color2_rgba = Some(RgbaColor::parse(&value)?),
+            _ => {}
+        }
+    }
+
+    Ok(overrides)
 }
 
 fn parse_overlay_key(
@@ -369,6 +465,8 @@ fn parse_overlay_key(
         "height" => overlay.height = parse_u32(key, value)?,
         "horizontal_alignment" => overlay.horizontal_alignment = HorizontalAlignment::parse(value)?,
         "vertical_alignment" => overlay.vertical_alignment = VerticalAlignment::parse(value)?,
+        "monitor_mode" => overlay.monitor_mode = OverlayMonitorMode::parse(value)?,
+        "monitors" => overlay.monitors = parse_string_list(value),
         _ => {
             return Err(ConfigLoadError::Parse(format!(
                 "unknown overlay key: {key}"
@@ -434,11 +532,63 @@ fn parse_bool(key: &str, value: &str) -> Result<bool, ConfigLoadError> {
     }
 }
 
+fn parse_string_list(value: &str) -> Vec<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+
+    let inner = if trimmed.starts_with('[') && trimmed.ends_with(']') && trimmed.len() >= 2 {
+        &trimmed[1..trimmed.len() - 1]
+    } else {
+        trimmed
+    };
+
+    inner
+        .split(',')
+        .map(str::trim)
+        .map(|item| item.trim_matches('"').trim_matches('\'').trim().to_owned())
+        .filter(|item| !item.is_empty())
+        .collect()
+}
+
+fn normalize_value(raw: &str) -> String {
+    let mut without_comment = String::new();
+    let mut in_quotes = false;
+    let mut escaped = false;
+
+    for ch in raw.chars() {
+        if ch == '"' && !escaped {
+            in_quotes = !in_quotes;
+            without_comment.push(ch);
+            continue;
+        }
+        if ch == '#' && !in_quotes {
+            break;
+        }
+        escaped = ch == '\\' && !escaped;
+        without_comment.push(ch);
+    }
+
+    let mut cleaned = without_comment.trim().trim_end_matches([',', ';']).trim();
+
+    if cleaned.len() >= 2 {
+        let quoted_double = cleaned.starts_with('"') && cleaned.ends_with('"');
+        let quoted_single = cleaned.starts_with('\'') && cleaned.ends_with('\'');
+        if quoted_double || quoted_single {
+            cleaned = &cleaned[1..cleaned.len() - 1];
+        }
+    }
+
+    cleaned.trim().to_owned()
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        AppConfig, HorizontalAlignment, OverlayLayer, OverlayPosition, VerticalAlignment,
-        VisualizerBackend, VisualizerColorMode, parse_config,
+        AppConfig, HorizontalAlignment, OverlayLayer, OverlayMonitorMode, OverlayPosition,
+        VerticalAlignment, VisualizerBackend, VisualizerColorMode, VisualizerColorOverrides,
+        apply_color_overrides, parse_color_overrides, parse_config,
     };
 
     #[test]
@@ -457,6 +607,8 @@ mod tests {
         height = 140
         horizontal_alignment = "right"
         vertical_alignment = "bottom"
+        monitor_mode = "list"
+        monitors = ["DP-1", "HDMI-A-1"]
 
         [visualizer]
         backend = "dummy"
@@ -493,6 +645,8 @@ mod tests {
             HorizontalAlignment::Right
         );
         assert_eq!(parsed.overlay.vertical_alignment, VerticalAlignment::Bottom);
+        assert_eq!(parsed.overlay.monitor_mode, OverlayMonitorMode::List);
+        assert_eq!(parsed.overlay.monitors, vec!["DP-1", "HDMI-A-1"]);
         assert_eq!(parsed.visualizer.backend, VisualizerBackend::Dummy);
         assert_eq!(parsed.visualizer.bars, 64);
         assert_eq!(parsed.visualizer.bar_width, 5);
@@ -521,5 +675,88 @@ mod tests {
             Err(err) => panic!("empty config should parse, got error: {err}"),
         };
         assert_eq!(parsed, AppConfig::default());
+    }
+
+    #[test]
+    fn parses_colors_override_file() {
+        let raw = r#"
+        [colors]
+        color_rgba = "rgba(10, 20, 30, 0.8)"
+        color2_rgba = "rgba(100, 110, 120, 0.6)"
+        "#;
+
+        let parsed = match parse_color_overrides(raw) {
+            Ok(value) => value,
+            Err(err) => panic!("colors override should parse, got error: {err}"),
+        };
+
+        let Some(color1) = parsed.color_rgba else {
+            panic!("missing color_rgba override");
+        };
+        assert!((color1.r - (10.0 / 255.0)).abs() < 1e-5);
+        assert!((color1.g - (20.0 / 255.0)).abs() < 1e-5);
+        assert!((color1.b - (30.0 / 255.0)).abs() < 1e-5);
+        assert!((color1.a - 0.8).abs() < 1e-5);
+
+        let Some(color2) = parsed.color2_rgba else {
+            panic!("missing color2_rgba override");
+        };
+        assert!((color2.r - (100.0 / 255.0)).abs() < 1e-5);
+        assert!((color2.g - (110.0 / 255.0)).abs() < 1e-5);
+        assert!((color2.b - (120.0 / 255.0)).abs() < 1e-5);
+        assert!((color2.a - 0.6).abs() < 1e-5);
+    }
+
+    #[test]
+    fn parses_colors_override_with_inline_comment_and_separator() {
+        let raw = r#"
+        [visualizer]
+        color_rgba = "rgba(202, 122, 99, 0.9)" # matugen
+        color2_rgba = "rgba(150, 100, 255, 0.7)";
+        "#;
+
+        let parsed = match parse_color_overrides(raw) {
+            Ok(value) => value,
+            Err(err) => panic!("colors override should parse, got error: {err}"),
+        };
+
+        let Some(color1) = parsed.color_rgba else {
+            panic!("missing color_rgba override");
+        };
+        assert!((color1.r - (202.0 / 255.0)).abs() < 1e-5);
+        assert!((color1.g - (122.0 / 255.0)).abs() < 1e-5);
+        assert!((color1.b - (99.0 / 255.0)).abs() < 1e-5);
+        assert!((color1.a - 0.9).abs() < 1e-5);
+
+        let Some(color2) = parsed.color2_rgba else {
+            panic!("missing color2_rgba override");
+        };
+        assert!((color2.r - (150.0 / 255.0)).abs() < 1e-5);
+        assert!((color2.g - (100.0 / 255.0)).abs() < 1e-5);
+        assert!((color2.b - 1.0).abs() < 1e-5);
+        assert!((color2.a - 0.7).abs() < 1e-5);
+    }
+
+    #[test]
+    fn applies_color_overrides_with_precedence() {
+        let mut config = AppConfig::default();
+        let original_color2 = config.visualizer.color2_rgba;
+
+        let overrides = VisualizerColorOverrides {
+            color_rgba: Some(super::RgbaColor {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.75,
+            }),
+            color2_rgba: None,
+        };
+        apply_color_overrides(&mut config, overrides);
+
+        assert!((config.visualizer.color_rgba.r - 1.0).abs() < 1e-5);
+        assert!(config.visualizer.color_rgba.g.abs() < 1e-5);
+        assert!(config.visualizer.color_rgba.b.abs() < 1e-5);
+        assert!((config.visualizer.color_rgba.a - 0.75).abs() < 1e-5);
+        assert_eq!(config.visualizer.color2_rgba, original_color2);
     }
 }
