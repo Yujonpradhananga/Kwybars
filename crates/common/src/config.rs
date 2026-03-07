@@ -272,6 +272,8 @@ pub struct VisualizerConfig {
     pub radial_start_angle: f32,
     pub radial_arc_degrees: f32,
     pub radial_rotation_speed: f32,
+    pub radial_center_offset_x: f32,
+    pub radial_center_offset_y: f32,
     pub gap: u32,
     pub framerate: u32,
     pub color_mode: VisualizerColorMode,
@@ -301,6 +303,8 @@ impl Default for VisualizerConfig {
             radial_start_angle: -90.0,
             radial_arc_degrees: 360.0,
             radial_rotation_speed: 0.0,
+            radial_center_offset_x: 0.0,
+            radial_center_offset_y: 0.0,
             gap: 20,
             framerate: 60,
             color_mode: VisualizerColorMode::Gradient,
@@ -596,6 +600,8 @@ fn parse_visualizer_key(
         "radial_start_angle" => visualizer.radial_start_angle = parse_f32(key, value)?,
         "radial_arc_degrees" => visualizer.radial_arc_degrees = parse_f32(key, value)?,
         "radial_rotation_speed" => visualizer.radial_rotation_speed = parse_f32(key, value)?,
+        "radial_center_offset_x" => visualizer.radial_center_offset_x = parse_f32(key, value)?,
+        "radial_center_offset_y" => visualizer.radial_center_offset_y = parse_f32(key, value)?,
         "gap" => visualizer.gap = parse_u32(key, value)?,
         "framerate" => visualizer.framerate = parse_u32(key, value)?,
         "color_mode" => visualizer.color_mode = VisualizerColorMode::parse(value)?,
@@ -805,6 +811,8 @@ mod tests {
         radial_start_angle = -180
         radial_arc_degrees = 180
         radial_rotation_speed = 24
+        radial_center_offset_x = 80
+        radial_center_offset_y = -40
         gap = 2
         framerate = 75
         color_mode = "gradient"
@@ -864,6 +872,8 @@ mod tests {
         assert!((parsed.visualizer.radial_start_angle - (-180.0)).abs() < 1e-5);
         assert!((parsed.visualizer.radial_arc_degrees - 180.0).abs() < 1e-5);
         assert!((parsed.visualizer.radial_rotation_speed - 24.0).abs() < 1e-5);
+        assert!((parsed.visualizer.radial_center_offset_x - 80.0).abs() < 1e-5);
+        assert!((parsed.visualizer.radial_center_offset_y - (-40.0)).abs() < 1e-5);
         assert_eq!(parsed.visualizer.gap, 2);
         assert_eq!(parsed.visualizer.framerate, 75);
         assert_eq!(parsed.visualizer.color_mode, VisualizerColorMode::Gradient);
@@ -934,6 +944,8 @@ mod tests {
         assert!((config.visualizer.radial_start_angle - (-90.0)).abs() < 1e-5);
         assert!((config.visualizer.radial_arc_degrees - 360.0).abs() < 1e-5);
         assert!(config.visualizer.radial_rotation_speed.abs() < 1e-5);
+        assert!(config.visualizer.radial_center_offset_x.abs() < 1e-5);
+        assert!(config.visualizer.radial_center_offset_y.abs() < 1e-5);
         assert_eq!(config.visualizer.gap, 20);
         assert_eq!(config.visualizer.framerate, 60);
         assert_eq!(config.visualizer.color_mode, VisualizerColorMode::Gradient);

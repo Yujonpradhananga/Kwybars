@@ -112,6 +112,8 @@ fn build_drawing_area(
     let radial_arc_radians = f64::from(config.visualizer.radial_arc_degrees).to_radians();
     let radial_rotation_radians_per_second =
         f64::from(config.visualizer.radial_rotation_speed).to_radians();
+    let radial_center_offset_x = f64::from(config.visualizer.radial_center_offset_x);
+    let radial_center_offset_y = f64::from(config.visualizer.radial_center_offset_y);
     let theme_colors = theme_palette
         .map(|theme| theme.colors)
         .filter(|colors| !colors.is_empty());
@@ -151,8 +153,8 @@ fn build_drawing_area(
             }
 
             if is_radial {
-                let center_x = f64::from(width) * 0.5;
-                let center_y = f64::from(height) * 0.5;
+                let center_x = (f64::from(width) * 0.5) + radial_center_offset_x;
+                let center_y = (f64::from(height) * 0.5) + radial_center_offset_y;
                 let animated_start_angle = radial_start_angle
                     + (rotation_started_at.elapsed().as_secs_f64()
                         * radial_rotation_radians_per_second);
