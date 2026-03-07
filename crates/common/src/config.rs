@@ -129,14 +129,14 @@ impl Default for OverlayConfig {
         Self {
             position: OverlayPosition::Bottom,
             layer: OverlayLayer::Background,
-            anchor_margin: 12,
-            margin_left: 0,
-            margin_right: 0,
+            anchor_margin: 20,
+            margin_left: 20,
+            margin_right: 20,
             margin_top: 0,
             margin_bottom: 0,
             full_length: true,
             width: 800,
-            height: 120,
+            height: 620,
             horizontal_alignment: HorizontalAlignment::Center,
             vertical_alignment: VerticalAlignment::Center,
             monitor_mode: OverlayMonitorMode::Primary,
@@ -267,17 +267,27 @@ impl Default for VisualizerConfig {
     fn default() -> Self {
         Self {
             backend: VisualizerBackend::Cava,
-            bars: 48,
-            bar_width: 6,
-            bar_corner_radius: 0.0,
+            bars: 50,
+            bar_width: 8,
+            bar_corner_radius: 20.0,
             segmented_bars: false,
             segment_length: 14,
             segment_gap: 6,
-            gap: 3,
+            gap: 20,
             framerate: 60,
-            color_mode: VisualizerColorMode::Solid,
-            color_rgba: RgbaColor::default(),
-            color2_rgba: RgbaColor::default(),
+            color_mode: VisualizerColorMode::Gradient,
+            color_rgba: RgbaColor {
+                r: 175.0 / 255.0,
+                g: 198.0 / 255.0,
+                b: 1.0,
+                a: 0.7,
+            },
+            color2_rgba: RgbaColor {
+                r: 191.0 / 255.0,
+                g: 198.0 / 255.0,
+                b: 220.0 / 255.0,
+                a: 0.7,
+            },
             theme: None,
             theme_opacity: 1.0,
             pipewire_attack: 0.14,
@@ -856,6 +866,47 @@ mod tests {
             Err(err) => panic!("empty config should parse, got error: {err}"),
         };
         assert_eq!(parsed, AppConfig::default());
+    }
+
+    #[test]
+    fn built_in_defaults_match_expected_no_config_setup() {
+        let config = AppConfig::default();
+
+        assert_eq!(config.overlay.monitor_mode, OverlayMonitorMode::Primary);
+        assert_eq!(config.overlay.layer, OverlayLayer::Background);
+        assert_eq!(config.overlay.position, OverlayPosition::Bottom);
+        assert!(config.overlay.full_length);
+        assert_eq!(config.overlay.height, 620);
+        assert_eq!(config.overlay.anchor_margin, 20);
+        assert_eq!(config.overlay.margin_left, 20);
+        assert_eq!(config.overlay.margin_right, 20);
+
+        assert_eq!(config.visualizer.backend, VisualizerBackend::Cava);
+        assert!((config.visualizer.bar_corner_radius - 20.0).abs() < 1e-5);
+        assert_eq!(config.visualizer.bars, 50);
+        assert_eq!(config.visualizer.bar_width, 8);
+        assert_eq!(config.visualizer.gap, 20);
+        assert_eq!(config.visualizer.framerate, 60);
+        assert_eq!(config.visualizer.color_mode, VisualizerColorMode::Gradient);
+        assert!((config.visualizer.color_rgba.r - (175.0 / 255.0)).abs() < 1e-5);
+        assert!((config.visualizer.color_rgba.g - (198.0 / 255.0)).abs() < 1e-5);
+        assert!((config.visualizer.color_rgba.b - 1.0).abs() < 1e-5);
+        assert!((config.visualizer.color_rgba.a - 0.7).abs() < 1e-5);
+        assert!((config.visualizer.color2_rgba.r - (191.0 / 255.0)).abs() < 1e-5);
+        assert!((config.visualizer.color2_rgba.g - (198.0 / 255.0)).abs() < 1e-5);
+        assert!((config.visualizer.color2_rgba.b - (220.0 / 255.0)).abs() < 1e-5);
+        assert!((config.visualizer.color2_rgba.a - 0.7).abs() < 1e-5);
+
+        assert!(config.daemon.enabled);
+        assert_eq!(config.daemon.poll_interval_ms, 90);
+        assert!((config.daemon.activity_threshold - 0.035).abs() < 1e-5);
+        assert_eq!(config.daemon.activate_delay_ms, 180);
+        assert_eq!(config.daemon.deactivate_delay_ms, 2200);
+        assert!(config.daemon.stop_on_silence);
+        assert!(config.daemon.notify_on_error);
+        assert_eq!(config.daemon.notify_cooldown_seconds, 45);
+        assert_eq!(config.daemon.overlay_command, "kwybars-overlay");
+        assert!(config.daemon.overlay_args.is_empty());
     }
 
     #[test]

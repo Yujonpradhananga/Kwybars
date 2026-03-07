@@ -20,8 +20,14 @@ https://github.com/user-attachments/assets/65c97990-bc8a-490a-bc07-9c68bc214678
 -   Multiple audio backends: `cava` (default), `pipewire`, `dummy` (test animation), `auto`
 -   Optional `kwybars-daemon` that auto starts/stops overlay based on audio activity
 
-## Requirements
+## Installation
+### AUR (Arch Linux)
 
+``` bash
+yay -S kwybars
+```
+
+### Install from source
 Install dependencies:
 
 ``` bash
@@ -34,7 +40,6 @@ sudo pacman -S --needed rust gtk4 gtk4-layer-shell pipewire cava libnotify
 cargo build --workspace
 cargo run -p kwybars-overlay
 ```
-*you must run this inside a Wayland graphical session*
 
 Run daemon mode (auto launch on audio):
 
@@ -46,12 +51,14 @@ cargo run -p kwybars-daemon
 
 Kwybars looks for config files in this order:
 
-- `KWYBARS_CONFIG` environment variable\
-- `$XDG_CONFIG_HOME/kwybars/config.toml`\
-- `~/.config/kwybars/config.toml`\
+- `KWYBARS_CONFIG` environment variable
+- `$XDG_CONFIG_HOME/kwybars/config.toml`
+- `~/.config/kwybars/config.toml` (recommended)
 - `./kwybars.toml`
 
 *config files auto reload while the app is running*
+
+If no config file exists, Kwybars uses the built-in defaults.
 
 ### Optional Color Overrides
 
@@ -75,14 +82,32 @@ color2_rgba = "rgba(187, 154, 247, 0.95)"
 - CSS-like string: `"rgba(31, 224, 173, 0.90)"`
 - plain comma string: `"31,224,173,0.90"` or `"0.12,0.88,0.68,0.90"`
 
+## Matugen (optional)
+Change bars colors `color_rgba` and `color2_rgba` with Matugen
+
+1. Create a new file `kwybars-colors.toml` in `~/.config/matugen/templates`
+2. Add the following content to `kwybars-colors.toml`:
+```toml
+[visualizer]
+color_rgba = "{{colors.primary.default.rgba | set_alpha: 0.7}}"
+color2_rgba = "{{colors.secondary.default.rgba | set_alpha: 0.7}}"
+```
+
+
+3. Then add the following to your matugen config file `~/.config/matugen/config.toml`:
+```toml
+[templates.kwybars]
+input_path = '~/.config/matugen/templates/kwybars-colors.json'
+output_path = '~/.config/kwybars/colors.toml'
+```
+
 ## Themes
 
 - Active theme is selected with `theme` in `config.toml` (optional).
 - `theme_opacity` multiplies the theme alpha for all bars.
 
 Theme lookup order for `<theme>.toml`:
-1. `~/.config/kwybars/themes/<theme>.toml` (or next to your active `KWYBARS_CONFIG`)
-2. Built-in `assets/themes/<theme>.toml`
+`~/.config/kwybars/themes/<theme>.toml` (or next to your active `KWYBARS_CONFIG`)
 
 Available built-in themes:
 - `ayu-dark`
@@ -114,7 +139,7 @@ theme = "catppuccin-mocha"
 theme_opacity = 0.85
 ```
 
-## Example Config
+## Default Config
 
 ``` toml
 [overlay]
@@ -128,7 +153,7 @@ anchor_margin = 20
 [visualizer]
 backend = "cava"
 bar_corner_radius = 20
-segmented_bars = true
+segmented_bars = false
 segment_length = 12
 segment_gap = 6
 bars = 50
@@ -139,6 +164,7 @@ color_mode = "gradient"
 color_rgba = "rgba(175, 198, 255, 0.7)"
 color2_rgba = "rgba(191, 198, 220, 0.7)"
 
+# By default daemon is already enabled and configured for you. Use in your config only if you need to customize.
 [daemon]
 enabled = true
 poll_interval_ms = 90
@@ -152,20 +178,9 @@ overlay_command = "kwybars-overlay"
 overlay_args = []
 ```
 
-### Monitor Selection
-
-`primary` uses the first monitor reported by GDK.
-For `monitor_mode = "list"`, each monitor entry can be:
-- Connector name (recommended), e.g. `"DP-1"`
-- 1-based index string, e.g. `"1"`, `"2"`, or `"index:1"`
-
 ## Config Reference
 
-Root keys:
-- `theme`: optional theme name (same as `[visualizer].theme`).
-- `theme_opacity`: theme alpha multiplier `0.0..1.0` (same as `[visualizer].theme_opacity`).
-
-`[overlay]` keys:
+`[overlay]`
 - `position`: overlay edge: `bottom|top|left|right`.
 - `layer`: stacking layer: `background|bottom|top`.
 - `anchor_margin`: margin on the anchored edge.
@@ -178,11 +193,10 @@ Root keys:
 - `height`: fixed height for vertical overlays or thickness for horizontal overlays.
 - `horizontal_alignment`: alignment for top/bottom when `full_length=false`: `left|center|right`.
 - `vertical_alignment`: alignment for left/right when `full_length=false`: `top|center|bottom`.
-- `monitor_mode`: monitor targeting: `primary|all|list`.
-- `monitors`: monitor selector list (connector names like `DP-1` or 1-based indices like `"1"` or or `"index:1"`), used when `monitor_mode="list"`. (`monitors = ["DP-1", "HDMI-A-1"]`)
+- `monitor_mode`: monitor targeting: `primary|all|list` (default: `primary`)
+- `monitors`: monitor selector list (connector names like `DP-1` or 1-based indices like `"1"`), used when `monitor_mode="list"`. (`monitors = ["DP-1", "HDMI-A-1"]`)
 
-`[visualizer]` keys:
-- `backend`: input backend: `cava|pipewire|auto|dummy`.
+`[visualizer]`
 - `bars`: number of bars.
 - `bar_width`: base bar thickness in pixels.
 - `bar_corner_radius`: bar corner radius in pixels (`0` = square bars).
@@ -190,19 +204,14 @@ Root keys:
 - `segment_length`: segment size in pixels along bar growth direction.
 - `segment_gap`: empty spacing in pixels between segments.
 - `gap`: gap between bars in pixels.
-- `framerate`: render update rate.
-- `color_mode`: `solid|gradient`.
-- `color_rgba`: primary bar color.
-- `color2_rgba`: secondary color for gradient mode.
-- `theme`: optional theme name to load from `assets/themes/<theme>.toml`.
-- `theme_opacity`: theme alpha multiplier `0.0..1.0`.
-- `pipewire_attack`: PipeWire rise speed tuning.
-- `pipewire_decay`: PipeWire fall smoothing.
-- `pipewire_gain`: PipeWire sensitivity gain.
-- `pipewire_curve`: PipeWire response curve shaping.
-- `pipewire_neighbor_mix`: PipeWire neighbor bar smoothing amount.
+- `framerate`: render update rate (default: `60`).
+- `color_mode`: `solid|gradient` (default: `gradient`). Solid color mode uses `color_rgba`, gradient mode uses both `color_rgba` and `color2_rgba`.
+- `color_rgba`: primary bar color (default: `rgba(175, 198, 255, 0.7)`)
+- `color2_rgba`: secondary color for gradient mode (default: `rgba(191, 198, 220, 0.7)`)
+- `theme`: optional theme name to load from `~/.config/kwybars/themes/<theme>.toml` or built-in themes. Available themes: `ayu-dark`, `catppuccin-mocha`, `dracula`, `everforest`, `gruvbox`, `nord`, `rose-pine` and `tokyo-night` (default: `none`).
+- `theme_opacity`: theme alpha multiplier `0.0..1.0` (default: `1.0`).
 
-`[daemon]` keys:
+`[daemon]`
 - `enabled`: run daemon logic (`true|false`).
 - `poll_interval_ms`: daemon poll period in milliseconds.
 - `activity_threshold`: peak level threshold `0.0..1.0` for "audio active".
@@ -213,10 +222,6 @@ Root keys:
 - `notify_cooldown_seconds`: minimum seconds between repeated notifications for the same error.
 - `overlay_command`: command used to launch overlay (`kwybars-overlay` by default).
 - `overlay_args`: optional command arguments list.
-
-`colors.toml` supported keys:
-- `color_rgba`: overrides `[visualizer].color_rgba` when present.
-- `color2_rgba`: overrides `[visualizer].color2_rgba` when present.
 
 Config parse errors include line numbers (for example: `line 42: unknown overlay key: ...`).
 
@@ -238,6 +243,3 @@ overlay_args = ["run", "-p", "kwybars-overlay"]
 - You can set log level with `KWYBARS_LOG` (or `RUST_LOG`), for example:
   - `KWYBARS_LOG=debug cargo run -p kwybars-daemon`
 - Override log file location with `KWYBARS_LOG_FILE=/path/to/kwybars.log`
-
-## TODO: (not implemented yet)
--   Direct **PipeWire client** (without `pw-cat`)
