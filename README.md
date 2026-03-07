@@ -6,10 +6,7 @@ Think of it like `cava`... but instead of living in the terminal, it becomes a t
 
 You can pin it to the top, bottom, left, or right of your screen and watch your music bounce in real time.
 
-<!-- Top image -->
-<p align="center">
-  <img width="100%" src="https://i.imgur.com/pgVJdgU.png" alt="Top Image">
-</p>
+https://github.com/user-attachments/assets/65c97990-bc8a-490a-bc07-9c68bc214678
 
 ## 🔥 Features
 
@@ -19,8 +16,8 @@ You can pin it to the top, bottom, left, or right of your screen and watch your 
 -   Solid or gradient bar colors
 -   Optional segmented bar style (oldschool split blocks)
 -   Hot reload config changes (no restart needed!)
--   Optional theme palettes (`assets/themes/*.toml`)
--   Multiple audio backends: `cava` (default), `pipewire`, `dummy` (test animation), `auto` → `cava → pipewire → dummy`
+-   Optional custom theme palettes (`~/.config/kwybars/themes/*.toml`)
+-   Multiple audio backends: `cava` (default), `pipewire`, `dummy` (test animation), `auto`
 -   Optional `kwybars-daemon` that auto starts/stops overlay based on audio activity
 
 ## Requirements
