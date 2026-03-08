@@ -136,7 +136,7 @@ impl Default for OverlayConfig {
             margin_bottom: 0,
             full_length: true,
             width: 800,
-            height: 620,
+            height: 500,
             horizontal_alignment: HorizontalAlignment::Center,
             vertical_alignment: VerticalAlignment::Center,
             monitor_mode: OverlayMonitorMode::Primary,
@@ -947,7 +947,7 @@ mod tests {
         assert_eq!(config.overlay.layer, OverlayLayer::Background);
         assert_eq!(config.overlay.position, OverlayPosition::Bottom);
         assert!(config.overlay.full_length);
-        assert_eq!(config.overlay.height, 620);
+        assert_eq!(config.overlay.height, 500);
         assert_eq!(config.overlay.anchor_margin, 20);
         assert_eq!(config.overlay.margin_left, 20);
         assert_eq!(config.overlay.margin_right, 20);

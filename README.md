@@ -6,27 +6,54 @@ Think of it like `cava`... but instead of living in the terminal, it becomes a t
 
 You can pin it to the top, bottom, left, or right of your screen and watch your music bounce in real time.
 
-https://github.com/user-attachments/assets/65c97990-bc8a-490a-bc07-9c68bc214678
-
 ## 🔥 Features
 
 -   Place visualizer on any screen edge `top | bottom | left | right`
+-   Multi-monitor support: show bars on primary, all, or selected monitors
 -   Control window layer: `background`, `bottom`, `top`
 -   Custom overlay size + alignment
 -   Solid or gradient bar colors
--   Optional segmented bar style (oldschool split blocks)
--   Optional radial layout centered on the monitor
--   Optional polygon layout for triangle, square, hexagon, and similar shapes
--   Hot reload config changes (no restart needed!)
--   Optional custom theme palettes (`~/.config/kwybars/themes/*.toml`)
--   Multiple audio backends: `cava` (default), `pipewire`, `dummy` (test animation), `auto`
--   Optional `kwybars-daemon` that auto starts/stops overlay based on audio activity
+-   Segmented bar style (oldschool split blocks)
+-   Radial layout (circular)
+-   Polygon layout for triangle, square, hexagon, and similar shapes
+-   Hot reload config changes (no restart needed)
+-   Built-in themes and optional custom theme palettes (`~/.config/kwybars/themes/*.toml`)
+-   Optional but recommended `kwybars-daemon` that auto starts/stops overlay based on audio activity
 
 ## Installation
 ### AUR (Arch Linux)
 
 ``` bash
 yay -S kwybars # Not available yet via AUR
+```
+
+Start the daemon after install:
+``` bash
+kwybars-daemon
+```
+Start the daemon on boot (Hyprland):
+```sh
+# Recommended (if you use UWSM):
+exec-once = uwsm app -- kwybars-daemon
+
+# If you are not using UWSM
+exec-once = kwybars-daemon
+```
+
+If you prefer systemd `systemd --user` service:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp assets/systemd/kwybars-daemon.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now kwybars-daemon.service
+```
+
+Useful commands:
+```bash
+systemctl --user status kwybars-daemon.service # check service status
+journalctl --user -u kwybars-daemon.service -f # follow logs
+systemctl --user disable --now kwybars-daemon.service # disable and stop service
 ```
 
 ### Install from source
@@ -149,7 +176,7 @@ monitor_mode = "primary"
 layer = "background"
 position = "bottom"
 full_length = true
-height = 620
+height = 500
 anchor_margin = 20
 margin_left = 20
 margin_right = 20
