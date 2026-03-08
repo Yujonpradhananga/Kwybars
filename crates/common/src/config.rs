@@ -279,6 +279,7 @@ pub struct VisualizerConfig {
     pub polygon_sides: u32,
     pub polygon_radius: u32,
     pub polygon_rotation: f32,
+    pub polygon_rotation_speed: f32,
     pub gap: u32,
     pub framerate: u32,
     pub color_mode: VisualizerColorMode,
@@ -313,6 +314,7 @@ impl Default for VisualizerConfig {
             polygon_sides: 3,
             polygon_radius: 220,
             polygon_rotation: -90.0,
+            polygon_rotation_speed: 0.0,
             gap: 20,
             framerate: 60,
             color_mode: VisualizerColorMode::Gradient,
@@ -613,6 +615,7 @@ fn parse_visualizer_key(
         "polygon_sides" => visualizer.polygon_sides = parse_u32(key, value)?.max(3),
         "polygon_radius" => visualizer.polygon_radius = parse_u32(key, value)?.max(1),
         "polygon_rotation" => visualizer.polygon_rotation = parse_f32(key, value)?,
+        "polygon_rotation_speed" => visualizer.polygon_rotation_speed = parse_f32(key, value)?,
         "gap" => visualizer.gap = parse_u32(key, value)?,
         "framerate" => visualizer.framerate = parse_u32(key, value)?,
         "color_mode" => visualizer.color_mode = VisualizerColorMode::parse(value)?,
@@ -827,6 +830,7 @@ mod tests {
         polygon_sides = 3
         polygon_radius = 240
         polygon_rotation = -90
+        polygon_rotation_speed = 12
         gap = 2
         framerate = 75
         color_mode = "gradient"
@@ -891,6 +895,7 @@ mod tests {
         assert_eq!(parsed.visualizer.polygon_sides, 3);
         assert_eq!(parsed.visualizer.polygon_radius, 240);
         assert!((parsed.visualizer.polygon_rotation - (-90.0)).abs() < 1e-5);
+        assert!((parsed.visualizer.polygon_rotation_speed - 12.0).abs() < 1e-5);
         assert_eq!(parsed.visualizer.gap, 2);
         assert_eq!(parsed.visualizer.framerate, 75);
         assert_eq!(parsed.visualizer.color_mode, VisualizerColorMode::Gradient);
@@ -966,6 +971,7 @@ mod tests {
         assert_eq!(config.visualizer.polygon_sides, 3);
         assert_eq!(config.visualizer.polygon_radius, 220);
         assert!((config.visualizer.polygon_rotation - (-90.0)).abs() < 1e-5);
+        assert!(config.visualizer.polygon_rotation_speed.abs() < 1e-5);
         assert_eq!(config.visualizer.gap, 20);
         assert_eq!(config.visualizer.framerate, 60);
         assert_eq!(config.visualizer.color_mode, VisualizerColorMode::Gradient);

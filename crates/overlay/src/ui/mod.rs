@@ -122,6 +122,8 @@ fn build_drawing_area(
     let polygon_sides = config.visualizer.polygon_sides.max(3) as usize;
     let polygon_radius = f64::from(config.visualizer.polygon_radius.max(1));
     let polygon_rotation = f64::from(config.visualizer.polygon_rotation).to_radians();
+    let polygon_rotation_radians_per_second =
+        f64::from(config.visualizer.polygon_rotation_speed).to_radians();
     let theme_colors = theme_palette
         .map(|theme| theme.colors)
         .filter(|colors| !colors.is_empty());
@@ -210,6 +212,9 @@ fn build_drawing_area(
             if is_polygon {
                 let center_x = (f64::from(width) * 0.5) + center_offset_x;
                 let center_y = (f64::from(height) * 0.5) + center_offset_y;
+                let animated_polygon_rotation = polygon_rotation
+                    + (rotation_started_at.elapsed().as_secs_f64()
+                        * polygon_rotation_radians_per_second);
 
                 draw::for_each_polygon_bar(
                     &values,
@@ -217,7 +222,7 @@ fn build_drawing_area(
                         width: f64::from(width),
                         height: f64::from(height),
                         radius: polygon_radius,
-                        rotation_radians: polygon_rotation,
+                        rotation_radians: animated_polygon_rotation,
                         sides: polygon_sides,
                     },
                     bar_style,

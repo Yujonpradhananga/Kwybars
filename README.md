@@ -4,7 +4,7 @@ Kwybars is a GTK4-based desktop audio visualizer for GNU/Linux (Wayland) that re
 
 Think of it like `cava`... but instead of living in the terminal, it becomes a transparent overlay on your desktop.
 
-You can place the visualizer on any screen edge — top, bottom, left, right or center and watch your music bounce in real time.
+Place visualizer on any screen edge: top, bottom, left, right or center and watch your music bounce in real time.
 
 Highly customizable with multiple layouts, segmented bars, gradients, themes, and extensive configuration options.
 
@@ -198,6 +198,7 @@ center_offset_y = 0
 polygon_sides = 3
 polygon_radius = 220
 polygon_rotation = -90
+polygon_rotation_speed = 0
 bars = 50
 bar_width = 8
 gap = 20
@@ -256,6 +257,7 @@ overlay_args = []
 - `polygon_sides`: number of polygon sides for `layout="polygon"` (`3` = triangle, `4` = square, `6` = hexagon).
 - `polygon_radius`: outer polygon radius in pixels for `layout="polygon"`.
 - `polygon_rotation`: polygon rotation in degrees for `layout="polygon"` (`-90` points a triangle upward).
+- `polygon_rotation_speed`: polygon rotation speed in degrees per second for `layout="polygon"` (`0` = static, negative reverses direction).
 - `gap`: gap between bars in pixels.
 - `framerate`: render update rate (default: `60`).
 - `color_mode`: `solid|gradient` (default: `gradient`). Solid color mode uses `color_rgba`, gradient mode uses both `color_rgba` and `color2_rgba`.
@@ -284,6 +286,20 @@ layout = "polygon"
 polygon_sides = 3
 polygon_radius = 220
 polygon_rotation = -90
+polygon_rotation_speed = 18
+center_offset_x = 0
+center_offset_y = 0
+```
+
+Example square layout:
+
+```toml
+[visualizer]
+layout = "polygon"
+polygon_sides = 4
+polygon_radius = 220
+polygon_rotation = 0
+polygon_rotation_speed = 0
 center_offset_x = 0
 center_offset_y = 0
 ```
