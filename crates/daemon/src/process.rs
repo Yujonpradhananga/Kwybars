@@ -1,4 +1,5 @@
 use std::io::{self, BufRead, BufReader, ErrorKind, Read};
+use std::path::Path;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -21,7 +22,12 @@ impl OverlayProcess {
         }
     }
 
-    pub fn ensure_running(&mut self, daemon: &DaemonConfig, now: Instant) -> io::Result<()> {
+    pub fn ensure_running(
+        &mut self,
+        daemon: &DaemonConfig,
+        config_path: &Path,
+        now: Instant,
+    ) -> io::Result<()> {
         if self.child.is_some() {
             return Ok(());
         }
@@ -33,7 +39,7 @@ impl OverlayProcess {
         }
 
         self.last_spawn_attempt = Some(now);
-        let mut command = build_command(daemon);
+        let mut command = build_command(daemon, config_path);
         let mut child = command.spawn()?;
         if let Some(stderr) = child.stderr.take() {
             spawn_overlay_stderr_forwarder(stderr);
@@ -76,7 +82,7 @@ impl OverlayProcess {
     }
 }
 
-fn build_command(daemon: &DaemonConfig) -> Command {
+fn build_command(daemon: &DaemonConfig, config_path: &Path) -> Command {
     let command_name = if daemon.overlay_command.trim().is_empty() {
         "kwybars-overlay"
     } else {
@@ -87,6 +93,7 @@ fn build_command(daemon: &DaemonConfig) -> Command {
     if !daemon.overlay_args.is_empty() {
         command.args(&daemon.overlay_args);
     }
+    command.env("KWYBARS_CONFIG", config_path);
     command.env("KWYBARS_DISABLE_NOTIFICATIONS", "1");
     command.stdin(Stdio::null());
     command.stderr(Stdio::piped());

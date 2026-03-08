@@ -3,7 +3,7 @@ mod process;
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
@@ -44,11 +44,12 @@ struct RuntimeConfig {
     daemon: DaemonConfig,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 struct ConfigStamp {
     exists: bool,
     modified_millis: u128,
     len: u64,
+    resolved_path: Option<PathBuf>,
 }
 
 impl ConfigStamp {
@@ -58,6 +59,7 @@ impl ConfigStamp {
                 exists: false,
                 modified_millis: 0,
                 len: 0,
+                resolved_path: None,
             };
         };
 
@@ -72,12 +74,12 @@ impl ConfigStamp {
             exists: true,
             modified_millis,
             len: metadata.len(),
+            resolved_path: resolve_runtime_config_path(path),
         }
     }
 }
 
-pub fn run() -> Result<(), DaemonError> {
-    let config_path = config::default_config_path();
+pub fn run(config_path: PathBuf) -> Result<(), DaemonError> {
     let mut runtime = load_runtime_config(&config_path).map_err(DaemonError::Config)?;
     if !runtime.daemon.enabled {
         info!("kwybars-daemon: disabled in config ([daemon].enabled=false), exiting");
@@ -118,6 +120,12 @@ pub fn run() -> Result<(), DaemonError> {
                 Ok(next_runtime) => {
                     if runtime != next_runtime {
                         info!("kwybars-daemon: config changed, reloading daemon settings");
+                        if overlay_launch_changed(&runtime.daemon, &next_runtime.daemon) {
+                            info!(
+                                "kwybars-daemon: overlay launch settings changed, restarting overlay"
+                            );
+                            overlay.stop().map_err(DaemonError::Runtime)?;
+                        }
                         if runtime.visualizer != next_runtime.visualizer {
                             stream = LiveFrameStream::spawn(next_runtime.visualizer.clone());
                             info!("audio source: {:?}", stream.source_kind());
@@ -163,7 +171,7 @@ pub fn run() -> Result<(), DaemonError> {
 
         match activity.state() {
             ActivityState::Active => {
-                if let Err(err) = overlay.ensure_running(&runtime.daemon, now) {
+                if let Err(err) = overlay.ensure_running(&runtime.daemon, &config_path, now) {
                     error!("kwybars-daemon: could not launch overlay: {err}");
                     notify_error_with_cooldown(
                         "daemon.overlay_launch_failed",
@@ -184,7 +192,9 @@ pub fn run() -> Result<(), DaemonError> {
 }
 
 fn load_runtime_config(config_path: &Path) -> Result<RuntimeConfig, config::ConfigLoadError> {
-    let app_config = config::load_or_default(config_path)?;
+    let resolved_config_path =
+        resolve_runtime_config_path(config_path).unwrap_or_else(|| config_path.to_path_buf());
+    let app_config = config::load_or_default(&resolved_config_path)?;
     Ok(RuntimeConfig {
         visualizer: app_config.visualizer,
         daemon: app_config.daemon,
@@ -193,4 +203,12 @@ fn load_runtime_config(config_path: &Path) -> Result<RuntimeConfig, config::Conf
 
 fn notify_cooldown(config: &DaemonConfig) -> Duration {
     Duration::from_secs(config.notify_cooldown_seconds)
+}
+
+fn overlay_launch_changed(current: &DaemonConfig, next: &DaemonConfig) -> bool {
+    current.overlay_command != next.overlay_command || current.overlay_args != next.overlay_args
+}
+
+fn resolve_runtime_config_path(path: &Path) -> Option<PathBuf> {
+    std::fs::canonicalize(path).ok()
 }

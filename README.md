@@ -34,6 +34,11 @@ Start the daemon after install:
 kwybars-daemon
 ```
 
+(Optional) Run with a specific config file:
+```bash
+kwybars-daemon --config ~/.config/kwybars/custom/my_config.toml
+```
+
 Start the daemon on boot (Hyprland):
 ```sh
 # Recommended (if you use UWSM):
@@ -75,10 +80,23 @@ Run daemon mode (auto launch on audio):
 cargo run -p kwybars-daemon
 ```
 
+Run with a specific config path:
+
+```bash
+cargo run -p kwybars-daemon -- --config ~/.config/kwybars/custom/my_config.toml
+```
+
+Use the control tool from source checkout:
+
+```bash
+cargo run -p kwybarsctl -- switch-config ~/.config/kwybars/custom/my_config.toml
+```
+
 ## Configuration
 
 Kwybars looks for config files in this order:
 
+- `--config /path/to/config.toml`
 - `KWYBARS_CONFIG` environment variable
 - `$XDG_CONFIG_HOME/kwybars/config.toml`
 - `~/.config/kwybars/config.toml` (recommended)
@@ -324,6 +342,56 @@ For local development without installing binaries:
 [daemon]
 overlay_command = "cargo"
 overlay_args = ["run", "-p", "kwybars-overlay"]
+```
+
+### Fast Config Switching
+
+`kwybarsctl switch-config` lets you swap the active config file atomically so a running
+`kwybars-daemon` or `kwybars-overlay` can reload it without a restart.
+
+Default behavior:
+- updates the normal active config path (`~/.config/kwybars/config.toml` or your XDG equivalent)
+- replaces that path with a symlink to the selected config
+- creates a one-time backup of an existing regular `config.toml` as `config.toml.bak`
+
+Examples:
+
+```bash
+kwybarsctl switch-config ~/.config/kwybars/custom/my_radial_config.toml
+kwybarsctl switch-config ~/.config/kwybars/custom/my_line_top_config.toml
+```
+
+If your overlay/daemon is watching a different active path, use `--active`:
+
+```bash
+kwybarsctl switch-config --active ~/.config/kwybars/current.toml ~/.config/kwybars/custom/config3.toml
+kwybars-daemon --config ~/.config/kwybars/current.toml
+```
+
+Notes:
+- The daemon/overlay and `kwybarsctl --active` must use the exact same active path.
+- If the switched config changes `[daemon].overlay_command` or `overlay_args`, the daemon restarts the overlay once so the new command takes effect.
+
+Recommended workflow:
+- keep one stable active file such as `~/.config/kwybars/current.toml`
+- put your real presets in `~/.config/kwybars/custom/*.toml`
+- start the daemon against the stable active file
+- switch presets by repointing that active file with `kwybarsctl`
+
+Example:
+
+```bash
+kwybars-daemon --config ~/.config/kwybars/current.toml
+kwybarsctl switch-config --active ~/.config/kwybars/current.toml ~/.config/kwybars/custom/my_radial_config.toml
+kwybarsctl switch-config --active ~/.config/kwybars/current.toml ~/.config/kwybars/custom/my_line_top_config.toml
+```
+
+Example Hyprland binds:
+
+```ini
+bind = SUPER ALT, 1, exec, kwybarsctl switch-config --active ~/.config/kwybars/current.toml ~/.config/kwybars/custom/my_radial_config.toml
+bind = SUPER ALT, 2, exec, kwybarsctl switch-config --active ~/.config/kwybars/current.toml ~/.config/kwybars/custom/my_line_top_config.toml
+bind = SUPER ALT, 3, exec, kwybarsctl switch-config --active ~/.config/kwybars/current.toml ~/.config/kwybars/custom/my_segmented_config.toml
 ```
 
 ## Logging
