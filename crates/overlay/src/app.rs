@@ -14,6 +14,7 @@ use crate::theme::{self, ThemePalette};
 
 const APP_ID: &str = "io.kwybars.overlay";
 const CONFIG_POLL_INTERVAL: Duration = Duration::from_millis(180);
+const CONFIG_RELOAD_DEBOUNCE: Duration = Duration::from_millis(260);
 
 #[derive(Debug)]
 pub enum AppError {
@@ -79,6 +80,12 @@ struct RunningOverlay {
 }
 
 type OverlayState = Rc<std::cell::RefCell<Option<RunningOverlay>>>;
+
+#[derive(Clone, Debug)]
+struct PendingReload {
+    stamp: ConfigFilesStamp,
+    ready_at: std::time::Instant,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ConfigFilesStamp {
@@ -147,8 +154,9 @@ pub fn run(config_path: PathBuf) -> Result<(), AppError> {
         let app_weak = app.downgrade();
         let config_path_for_reload = config_path.clone();
         let state_for_reload = Rc::clone(&state);
-        let mut last_stamp =
+        let mut last_processed_stamp =
             ConfigFilesStamp::read(&config_path_for_reload, runtime.theme_path.as_deref());
+        let mut pending_reload: Option<PendingReload> = None;
 
         glib::timeout_add_local(CONFIG_POLL_INTERVAL, move || {
             let Some(app) = app_weak.upgrade() else {
@@ -161,10 +169,38 @@ pub fn run(config_path: PathBuf) -> Result<(), AppError> {
                 .and_then(|running| running.runtime.theme_path.clone());
             let next_stamp =
                 ConfigFilesStamp::read(&config_path_for_reload, current_theme_path.as_deref());
-            if next_stamp == last_stamp {
+            let now = std::time::Instant::now();
+
+            if next_stamp == last_processed_stamp {
+                pending_reload = None;
                 return glib::ControlFlow::Continue;
             }
-            last_stamp = next_stamp;
+
+            match pending_reload.as_mut() {
+                Some(pending) if pending.stamp != next_stamp => {
+                    pending.stamp = next_stamp.clone();
+                    pending.ready_at = now + CONFIG_RELOAD_DEBOUNCE;
+                }
+                Some(_) => {}
+                None => {
+                    pending_reload = Some(PendingReload {
+                        stamp: next_stamp.clone(),
+                        ready_at: now + CONFIG_RELOAD_DEBOUNCE,
+                    });
+                }
+            }
+
+            let Some(pending) = pending_reload.as_ref() else {
+                return glib::ControlFlow::Continue;
+            };
+            if now < pending.ready_at {
+                return glib::ControlFlow::Continue;
+            }
+
+            let Some(pending) = pending_reload.take() else {
+                return glib::ControlFlow::Continue;
+            };
+            last_processed_stamp = pending.stamp;
 
             match load_runtime_config(&config_path_for_reload) {
                 Ok(next_runtime) => {

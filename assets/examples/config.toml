@@ -1,0 +1,35 @@
+# Example Kwybars config
+# If you do not create a config file, Kwybars already uses these built-in defaults
+
+[overlay]
+monitor_mode = "primary"
+layer = "background"
+position = "bottom"
+full_length = true
+height = 500
+anchor_margin = 20
+margin_left = 20
+margin_right = 20
+
+[visualizer]
+layout = "line"
+bar_corner_radius = 20
+bars = 50
+bar_width = 8
+gap = 20
+framerate = 60
+color_mode = "gradient"
+color_rgba = "rgba(175, 198, 255, 0.7)"
+color2_rgba = "rgba(191, 198, 220, 0.7)"
+
+[daemon]
+enabled = true
+poll_interval_ms = 90
+activity_threshold = 0.035
+activate_delay_ms = 180
+deactivate_delay_ms = 2200
+stop_on_silence = true
+notify_on_error = true
+notify_cooldown_seconds = 45
+overlay_command = "kwybars-overlay"
+overlay_args = []

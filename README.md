@@ -13,6 +13,8 @@ Kwybars is a GTK4-based desktop audio visualizer for GNU/Linux (Wayland) that re
 
 Think of it like `cava`... but instead of living in the terminal, it becomes a transparent overlay on your desktop. Place visualizer on any screen edge: top, bottom, left, right or center and watch your music bounce in real time. Kwybars are highly customizable with multiple layouts, segmented bars, gradients, themes, and extensive configuration options.
 
+https://github.com/user-attachments/assets/5fe84372-86be-49a8-b9c0-6564e81f1eaa
+
 ## 🔥 Features
 
 -   Place visualizer on any screen edge `top | bottom | left | right`
@@ -105,6 +107,9 @@ Kwybars looks for config files in this order:
 *config files auto reload while the app is running*
 
 If no config file exists, Kwybars uses the built-in defaults.
+
+Default example config:
+`/usr/share/doc/kwybars/examples/config.toml`
 
 ### Optional Color Overrides
 
@@ -203,19 +208,6 @@ margin_right = 20
 [visualizer]
 layout = "line"
 bar_corner_radius = 20
-segmented_bars = false
-segment_length = 12
-segment_gap = 6
-radial_inner_radius = 180
-radial_start_angle = -90
-radial_arc_degrees = 360
-radial_rotation_speed = 0
-center_offset_x = 0
-center_offset_y = 0
-polygon_sides = 3
-polygon_radius = 220
-polygon_rotation = -90
-polygon_rotation_speed = 0
 bars = 50
 bar_width = 8
 gap = 20

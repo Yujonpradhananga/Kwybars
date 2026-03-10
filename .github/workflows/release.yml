@@ -70,6 +70,7 @@ jobs:
           install -m755 target/release/kwybars-daemon "$dist_dir/kwybars-daemon"
           install -m755 target/release/kwybarsctl "$dist_dir/kwybarsctl"
           install -m644 assets/systemd/kwybars-daemon.service "$dist_dir/kwybars-daemon.service"
+          install -m644 assets/examples/config.toml "$dist_dir/config.toml"
           install -m644 assets/themes/*.toml "$dist_dir/themes/"
           install -m644 LICENSE "$dist_dir/LICENSE"
 

@@ -14,6 +14,8 @@ use kwybars_engine::live::LiveFrameStream;
 use process::OverlayProcess;
 use tracing::{error, info, warn};
 
+const CONFIG_RELOAD_DEBOUNCE: Duration = Duration::from_millis(260);
+
 #[derive(Debug)]
 pub enum DaemonError {
     Config(config::ConfigLoadError),
@@ -79,6 +81,12 @@ impl ConfigStamp {
     }
 }
 
+#[derive(Clone, Debug)]
+struct PendingConfigReload {
+    stamp: ConfigStamp,
+    ready_at: Instant,
+}
+
 pub fn run(config_path: PathBuf) -> Result<(), DaemonError> {
     let mut runtime = load_runtime_config(&config_path).map_err(DaemonError::Config)?;
     if !runtime.daemon.enabled {
@@ -97,6 +105,7 @@ pub fn run(config_path: PathBuf) -> Result<(), DaemonError> {
     }
 
     let mut config_stamp = ConfigStamp::read(&config_path);
+    let mut pending_config_reload: Option<PendingConfigReload> = None;
     let mut stream = LiveFrameStream::spawn(runtime.visualizer.clone());
     info!("audio source: {:?}", stream.source_kind());
     let mut inactivity_grace_until: Option<Instant> = None;
@@ -122,8 +131,32 @@ pub fn run(config_path: PathBuf) -> Result<(), DaemonError> {
         }
 
         let next_config_stamp = ConfigStamp::read(&config_path);
-        if next_config_stamp != config_stamp {
-            config_stamp = next_config_stamp;
+        if next_config_stamp == config_stamp {
+            pending_config_reload = None;
+        } else {
+            match pending_config_reload.as_mut() {
+                Some(pending) if pending.stamp != next_config_stamp => {
+                    pending.stamp = next_config_stamp.clone();
+                    pending.ready_at = now + CONFIG_RELOAD_DEBOUNCE;
+                }
+                Some(_) => {}
+                None => {
+                    pending_config_reload = Some(PendingConfigReload {
+                        stamp: next_config_stamp.clone(),
+                        ready_at: now + CONFIG_RELOAD_DEBOUNCE,
+                    });
+                }
+            }
+        }
+
+        if pending_config_reload
+            .as_ref()
+            .is_some_and(|pending| now >= pending.ready_at)
+        {
+            let Some(pending) = pending_config_reload.take() else {
+                continue;
+            };
+            config_stamp = pending.stamp;
             match load_runtime_config(&config_path) {
                 Ok(next_runtime) => {
                     if runtime != next_runtime {
@@ -280,8 +313,8 @@ mod tests {
     use kwybars_common::config::{DaemonConfig, VisualizerBackend, VisualizerConfig};
 
     use super::{
-        ActivityState, audio_probe_config_changed, config_switch_grace_duration,
-        extend_inactivity_grace,
+        ActivityState, CONFIG_RELOAD_DEBOUNCE, ConfigStamp, PendingConfigReload,
+        audio_probe_config_changed, config_switch_grace_duration, extend_inactivity_grace,
     };
 
     #[test]
@@ -343,5 +376,34 @@ mod tests {
 
         let active_until = extend_inactivity_grace(None, ActivityState::Active, now, duration);
         assert!(active_until.is_some_and(|until| until >= now + duration));
+    }
+
+    #[test]
+    fn debounce_keeps_latest_ready_at_when_stamp_changes() {
+        let first = ConfigStamp {
+            exists: true,
+            modified_millis: 1,
+            len: 10,
+            resolved_path: None,
+        };
+        let second = ConfigStamp {
+            exists: true,
+            modified_millis: 2,
+            len: 10,
+            resolved_path: None,
+        };
+        let start = Instant::now();
+        let mut pending = PendingConfigReload {
+            stamp: first,
+            ready_at: start + Duration::from_millis(100),
+        };
+
+        if pending.stamp != second {
+            pending.stamp = second.clone();
+            pending.ready_at = start + CONFIG_RELOAD_DEBOUNCE;
+        }
+
+        assert_eq!(pending.stamp, second);
+        assert!(pending.ready_at >= start + CONFIG_RELOAD_DEBOUNCE);
     }
 }
