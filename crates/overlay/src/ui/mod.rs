@@ -128,9 +128,10 @@ fn build_drawing_area(
     let is_radial = config.visualizer.layout == VisualizerLayout::Radial;
     let is_frame = config.visualizer.layout == VisualizerLayout::Frame;
     let is_polygon = config.visualizer.layout == VisualizerLayout::Polygon;
+    let is_particle = config.visualizer.layout == VisualizerLayout::Particle;
     let is_centered = matches!(
         config.visualizer.layout,
-        VisualizerLayout::Frame | VisualizerLayout::Radial | VisualizerLayout::Polygon
+        VisualizerLayout::Frame | VisualizerLayout::Radial | VisualizerLayout::Polygon | VisualizerLayout::Particle
     );
     let bar_thickness = f64::from(config.visualizer.bar_width.max(1));
     let corner_radius = f64::from(config.visualizer.bar_corner_radius.max(0.0));
@@ -208,6 +209,50 @@ fn build_drawing_area(
         drawing_area.set_draw_func(move |_, ctx, width, height| {
             let values = values_for_draw.borrow();
             if values.is_empty() || width <= 0 || height <= 0 {
+                return;
+            }
+
+            if is_particle {
+                let particle_orientation = if is_horizontal {
+                    draw::BarOrientation::Horizontal
+                } else {
+                    draw::BarOrientation::Vertical
+                };
+
+                draw::for_each_particle(
+                    &values,
+                    f64::from(width),
+                    f64::from(height),
+                    bar_thickness,
+                    gap,
+                    particle_orientation,
+                    |index, spec| {
+                        let color = if let Some(colors) = theme_colors.as_ref() {
+                            let color_idx =
+                                draw::bar_color_index(index, values.len(), colors.len());
+                            colors[color_idx]
+                        } else {
+                            color_for_index(
+                                bar_color_mode,
+                                bar_color,
+                                bar_color2,
+                                index,
+                                values.len(),
+                            )
+                        };
+
+                        ctx.set_source_rgba(
+                            f64::from(color.r),
+                            f64::from(color.g),
+                            f64::from(color.b),
+                            f64::from(color.a),
+                        );
+                        draw::draw_particle(ctx, spec);
+                        if ctx.fill().is_err() {
+                            error!("kwybars: cairo fill failed");
+                        }
+                    },
+                );
                 return;
             }
 

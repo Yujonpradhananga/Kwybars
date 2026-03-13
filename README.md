@@ -24,6 +24,7 @@ https://github.com/user-attachments/assets/5fe84372-86be-49a8-b9c0-6564e81f1eaa
 -   Solid or gradient bar colors
 -   Segmented bar style (oldschool split blocks)
 -   Radial layout (circular)
+-   Particle layout (pulsating dots)
 -   Frame layout for top+bottom, left+right, or all monitor edges at once
 -   Polygon layout for triangle, square, hexagon, and similar shapes
 -   Hot reload config changes (no restart needed)
@@ -251,7 +252,7 @@ overlay_args = []
 - `monitors`: monitor selector list (connector names like `DP-1` or 1-based indices like `"1"`), used when `monitor_mode="list"`. (`monitors = ["DP-1", "HDMI-A-1"]`)
 
 `[visualizer]`
-- `layout`: layout mode: `line|frame|radial|polygon`.
+- `layout`: layout mode: `line|frame|radial|polygon|particle`.
 - `bars`: number of bars.
 - `bar_width`: base bar thickness in pixels.
 - `bar_corner_radius`: bar corner radius in pixels (`0` = square bars).
@@ -349,6 +350,16 @@ polygon_rotation = 0
 polygon_rotation_speed = 0
 center_offset_x = 0
 center_offset_y = 0
+```
+
+Example particle layout:
+
+```toml
+[visualizer]
+layout = "particle"
+bars = 10
+bar_width = 40
+gap = 10
 ```
 
 `[daemon]`
