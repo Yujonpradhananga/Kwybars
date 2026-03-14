@@ -19,6 +19,9 @@ enum Command {
     Doctor {
         path: Option<PathBuf>,
     },
+    ListThemes {
+        path: Option<PathBuf>,
+    },
     Help,
 }
 
@@ -87,6 +90,11 @@ fn run() -> Result<Option<String>, ControlError> {
             let message = doctor(&path)?;
             Ok(Some(message))
         }
+        Command::ListThemes { path } => {
+            let path = path.unwrap_or_else(config::default_config_path);
+            let message = list_themes(&path);
+            Ok(Some(message))
+        }
     }
 }
 
@@ -101,6 +109,7 @@ fn parse_args(args: impl IntoIterator<Item = OsString>) -> Result<Command, Contr
         "switch-config" => parse_switch_config(args),
         "validate-config" => parse_validate_config(args),
         "doctor" => parse_doctor(args),
+        "list-themes" => parse_list_themes(args),
         other => Err(ControlError::Usage(format!(
             "unknown command: {other}\n\n{}",
             usage()
@@ -239,6 +248,47 @@ fn parse_doctor(args: impl IntoIterator<Item = OsString>) -> Result<Command, Con
     }
 
     Ok(Command::Doctor { path })
+}
+
+fn parse_list_themes(args: impl IntoIterator<Item = OsString>) -> Result<Command, ControlError> {
+    let mut args = args.into_iter();
+    let mut path = None;
+
+    while let Some(arg) = args.next() {
+        match arg.to_string_lossy().as_ref() {
+            "-h" | "--help" => return Ok(Command::Help),
+            "-c" | "--config" => {
+                let Some(value) = args.next() else {
+                    return Err(ControlError::Usage(format!(
+                        "missing value for --config\n\n{}",
+                        usage()
+                    )));
+                };
+                path = Some(PathBuf::from(value));
+            }
+            value if value.starts_with("--config=") => {
+                let path_value = &value["--config=".len()..];
+                if path_value.is_empty() {
+                    return Err(ControlError::Usage(format!(
+                        "missing value for --config\n\n{}",
+                        usage()
+                    )));
+                }
+                path = Some(PathBuf::from(path_value));
+            }
+            other => {
+                if path.is_some() {
+                    return Err(ControlError::Usage(format!(
+                        "unexpected extra argument: {other}\n\n{}",
+                        usage()
+                    )));
+                }
+                path = Some(PathBuf::from(other));
+            }
+        }
+    }
+
+    Ok(Command::ListThemes { path })
 }
 
 fn validate_target(path: &Path) -> Result<PathBuf, ControlError> {
@@ -433,6 +483,27 @@ fn doctor(path: &Path) -> Result<String, ControlError> {
     }
 }
 
+fn list_themes(path: &Path) -> String {
+    let resolved_config_path = resolve_runtime_config_path(path);
+    let config_load_path = resolved_config_path.as_deref().unwrap_or(path);
+    let themes = theme::list_available_themes(config_load_path);
+
+    if themes.is_empty() {
+        return "no themes found".to_owned();
+    }
+
+    let mut lines = vec!["available themes".to_owned()];
+    for theme in themes {
+        lines.push(format!(
+            "- {} ({}, {})",
+            theme.name,
+            theme.source.label(),
+            theme.path.display()
+        ));
+    }
+    lines.join("\n")
+}
+
 fn resolve_runtime_config_path(path: &Path) -> Option<PathBuf> {
     fs::canonicalize(path).ok()
 }
@@ -528,7 +599,7 @@ fn create_symlink(_target: &Path, _link: &Path) -> Result<(), ControlError> {
 }
 
 fn usage() -> String {
-    "Usage:\n  kwybarsctl switch-config [--active <path>] <target-config.toml>\n  kwybarsctl validate-config [--config <path>]\n  kwybarsctl validate-config [path]\n  kwybarsctl doctor [--config <path>]\n  kwybarsctl doctor [path]\n  kwybarsctl --help\n\nCommands:\n  switch-config         Atomically switch the watched config path to another config file\n  validate-config       Validate config.toml, adjacent colors.toml, and configured theme\n  doctor                Report config/runtime environment status and likely setup issues\n\nOptions:\n  -a, --active <path>   Active config path to update (default: normal Kwybars config path)\n  -c, --config <path>   Config path to validate/report\n  -h, --help            Show this help message"
+    "Usage:\n  kwybarsctl switch-config [--active <path>] <target-config.toml>\n  kwybarsctl validate-config [--config <path>]\n  kwybarsctl validate-config [path]\n  kwybarsctl doctor [--config <path>]\n  kwybarsctl doctor [path]\n  kwybarsctl list-themes [--config <path>]\n  kwybarsctl list-themes [path]\n  kwybarsctl --help\n\nCommands:\n  switch-config         Atomically switch the watched config path to another config file\n  validate-config       Validate config.toml, adjacent colors.toml, and configured theme\n  doctor                Report config/runtime environment status and likely setup issues\n  list-themes           List available user and built-in themes\n\nOptions:\n  -a, --active <path>   Active config path to update (default: normal Kwybars config path)\n  -c, --config <path>   Config path to validate/report/list themes for\n  -h, --help            Show this help message"
         .to_owned()
 }
 
@@ -579,6 +650,16 @@ mod tests {
 
         let Ok(Command::Doctor { path }) = parsed else {
             panic!("expected doctor command");
+        };
+        assert_eq!(path, Some(PathBuf::from("/tmp/custom.toml")));
+    }
+
+    #[test]
+    fn parses_list_themes_command() {
+        let parsed = parse_args(["list-themes".into(), "--config=/tmp/custom.toml".into()]);
+
+        let Ok(Command::ListThemes { path }) = parsed else {
+            panic!("expected list-themes command");
         };
         assert_eq!(path, Some(PathBuf::from("/tmp/custom.toml")));
     }

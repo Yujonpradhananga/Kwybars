@@ -450,6 +450,17 @@ kwybarsctl validate-config ~/.config/kwybars/custom/my_config.toml
 kwybarsctl validate-config --config ~/.config/kwybars/current.toml
 ```
 
+## List Themes
+
+`kwybarsctl list-themes` shows available user and built-in themes with their source paths.
+
+Examples:
+
+```bash
+kwybarsctl list-themes
+kwybarsctl list-themes --config ~/.config/kwybars/current.toml
+```
+
 ## Logging
 
 - Both `kwybars-overlay` and `kwybars-daemon` write logs to stderr and to a file.

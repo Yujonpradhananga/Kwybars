@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -10,6 +11,30 @@ const THEME_COLOR_KEYS: [&str; 6] = ["red", "green", "yellow", "blue", "magenta"
 pub struct ThemePalette {
     pub name: String,
     pub colors: Vec<RgbaColor>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ThemeSource {
+    User,
+    System,
+    Cwd,
+}
+
+impl ThemeSource {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::User => "user",
+            Self::System => "system",
+            Self::Cwd => "cwd",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AvailableTheme {
+    pub name: String,
+    pub path: PathBuf,
+    pub source: ThemeSource,
 }
 
 #[derive(Debug)]
@@ -63,6 +88,27 @@ pub fn load_theme_palette(
 ) -> Result<ThemePalette, ThemeLoadError> {
     let raw = fs::read_to_string(path).map_err(ThemeLoadError::Io)?;
     parse_theme_palette(&raw, theme_name, opacity)
+}
+
+pub fn list_available_themes(config_path: &Path) -> Vec<AvailableTheme> {
+    let mut themes = BTreeMap::<String, AvailableTheme>::new();
+
+    let user_dir = config_path
+        .parent()
+        .map(|parent| parent.join("themes"))
+        .unwrap_or_else(|| PathBuf::from("themes"));
+    collect_theme_dir(&user_dir, ThemeSource::User, &mut themes);
+    collect_theme_dir(
+        &PathBuf::from("/usr/share/kwybars/themes"),
+        ThemeSource::System,
+        &mut themes,
+    );
+    let cwd_dir = std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join("assets/themes");
+    collect_theme_dir(&cwd_dir, ThemeSource::Cwd, &mut themes);
+
+    themes.into_values().collect()
 }
 
 fn parse_theme_palette(
@@ -153,6 +199,37 @@ fn parse_hex_color(value: &str) -> Result<RgbaColor, String> {
     }
 }
 
+fn collect_theme_dir(
+    dir: &Path,
+    source: ThemeSource,
+    themes: &mut BTreeMap<String, AvailableTheme>,
+) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        if path.extension().and_then(|ext| ext.to_str()) != Some("toml") {
+            continue;
+        }
+        let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) else {
+            continue;
+        };
+        let name = stem.trim().to_owned();
+        if name.is_empty() {
+            continue;
+        }
+
+        themes
+            .entry(name.clone())
+            .or_insert(AvailableTheme { name, path, source });
+    }
+}
+
 fn parse_hex_byte(value: &str) -> Result<u8, String> {
     u8::from_str_radix(value, 16).map_err(|_| format!("invalid hex byte `{value}`"))
 }
@@ -190,7 +267,9 @@ fn normalize_value(raw: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_theme_palette;
+    use super::{ThemeSource, list_available_themes, parse_theme_palette};
+    use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn parses_six_color_theme() {
@@ -212,5 +291,25 @@ cyan = "#94e2d5"
         assert_eq!(palette.name, "catppuccin-mocha");
         assert_eq!(palette.colors.len(), 6);
         assert!((palette.colors[0].a - 0.8).abs() < 1e-5);
+    }
+
+    #[test]
+    fn lists_user_themes_from_config_directory() {
+        let base = PathBuf::from(format!("/tmp/kwybars-theme-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let themes_dir = base.join("themes");
+        fs::create_dir_all(&themes_dir).unwrap_or_else(|err| {
+            panic!("failed to create theme dir: {err}");
+        });
+        fs::write(themes_dir.join("custom.toml"), "name = \"custom\"\n").unwrap_or_else(|err| {
+            panic!("failed to write theme file: {err}");
+        });
+
+        let listed = list_available_themes(&base.join("config.toml"));
+        let found = listed.iter().find(|theme| theme.name == "custom");
+        assert!(found.is_some(), "expected custom theme to be listed");
+        assert_eq!(found.map(|theme| theme.source), Some(ThemeSource::User));
+
+        let _ = fs::remove_dir_all(&base);
     }
 }
