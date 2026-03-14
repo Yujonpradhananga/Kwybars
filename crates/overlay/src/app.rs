@@ -8,9 +8,8 @@ use gtk::glib;
 use gtk::prelude::*;
 use kwybars_common::config::{self, AppConfig};
 use kwybars_common::notify::notify_error_with_cooldown;
+use kwybars_common::theme::{self, ThemePalette};
 use tracing::{error, info, warn};
-
-use crate::theme::{self, ThemePalette};
 
 const APP_ID: &str = "io.kwybars.overlay";
 const CONFIG_POLL_INTERVAL: Duration = Duration::from_millis(180);

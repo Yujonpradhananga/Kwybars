@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use kwybars_common::config::RgbaColor;
+use crate::config::RgbaColor;
 
 const THEME_COLOR_KEYS: [&str; 6] = ["red", "green", "yellow", "blue", "magenta", "cyan"];
 

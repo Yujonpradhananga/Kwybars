@@ -4,12 +4,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use kwybars_common::config;
+use kwybars_common::theme;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Command {
     SwitchConfig {
         target: PathBuf,
         active: Option<PathBuf>,
+    },
+    ValidateConfig {
+        path: Option<PathBuf>,
     },
     Help,
 }
@@ -63,6 +67,11 @@ fn run() -> Result<Option<String>, ControlError> {
             let message = switch_config(&active_path, &target_path)?;
             Ok(Some(message))
         }
+        Command::ValidateConfig { path } => {
+            let path = path.unwrap_or_else(config::default_config_path);
+            let message = validate_config(&path)?;
+            Ok(Some(message))
+        }
     }
 }
 
@@ -75,6 +84,7 @@ fn parse_args(args: impl IntoIterator<Item = OsString>) -> Result<Command, Contr
     match command.to_string_lossy().as_ref() {
         "-h" | "--help" | "help" => Ok(Command::Help),
         "switch-config" => parse_switch_config(args),
+        "validate-config" => parse_validate_config(args),
         other => Err(ControlError::Usage(format!(
             "unknown command: {other}\n\n{}",
             usage()
@@ -131,6 +141,49 @@ fn parse_switch_config(args: impl IntoIterator<Item = OsString>) -> Result<Comma
     Ok(Command::SwitchConfig { target, active })
 }
 
+fn parse_validate_config(
+    args: impl IntoIterator<Item = OsString>,
+) -> Result<Command, ControlError> {
+    let mut args = args.into_iter();
+    let mut path = None;
+
+    while let Some(arg) = args.next() {
+        match arg.to_string_lossy().as_ref() {
+            "-h" | "--help" => return Ok(Command::Help),
+            "-c" | "--config" => {
+                let Some(value) = args.next() else {
+                    return Err(ControlError::Usage(format!(
+                        "missing value for --config\n\n{}",
+                        usage()
+                    )));
+                };
+                path = Some(PathBuf::from(value));
+            }
+            value if value.starts_with("--config=") => {
+                let path_value = &value["--config=".len()..];
+                if path_value.is_empty() {
+                    return Err(ControlError::Usage(format!(
+                        "missing value for --config\n\n{}",
+                        usage()
+                    )));
+                }
+                path = Some(PathBuf::from(path_value));
+            }
+            other => {
+                if path.is_some() {
+                    return Err(ControlError::Usage(format!(
+                        "unexpected extra argument: {other}\n\n{}",
+                        usage()
+                    )));
+                }
+                path = Some(PathBuf::from(other));
+            }
+        }
+    }
+
+    Ok(Command::ValidateConfig { path })
+}
+
 fn validate_target(path: &Path) -> Result<PathBuf, ControlError> {
     let canonical = fs::canonicalize(path).map_err(|err| {
         if err.kind() == std::io::ErrorKind::NotFound {
@@ -149,6 +202,62 @@ fn validate_target(path: &Path) -> Result<PathBuf, ControlError> {
     }
 
     Ok(canonical)
+}
+
+fn validate_config(path: &Path) -> Result<String, ControlError> {
+    let explicit_path = path != config::default_config_path();
+    if explicit_path && !path.exists() {
+        return Err(ControlError::InvalidTarget(format!(
+            "config does not exist: {}",
+            path.display()
+        )));
+    }
+
+    let resolved_config_path = resolve_runtime_config_path(path);
+    let config_load_path = resolved_config_path.as_deref().unwrap_or(path);
+    let mut loaded = config::load_or_default(config_load_path).map_err(ControlError::usage_like)?;
+    let colors_path = config::default_colors_path(config_load_path);
+    let colors_exists = colors_path.exists();
+
+    if colors_exists {
+        let overrides =
+            config::load_color_overrides(&colors_path).map_err(ControlError::usage_like)?;
+        config::apply_color_overrides(&mut loaded, overrides);
+    }
+
+    let mut theme_summary = "theme: none".to_owned();
+    if let Some(theme_name) = loaded.visualizer.theme.as_deref() {
+        let trimmed = theme_name.trim();
+        if !trimmed.is_empty() {
+            let theme_path = theme::resolve_theme_path(config_load_path, trimmed);
+            let palette =
+                theme::load_theme_palette(&theme_path, trimmed, loaded.visualizer.theme_opacity)
+                    .map_err(ControlError::usage_like)?;
+            theme_summary = format!("theme: {} ({})", palette.name, theme_path.display());
+        }
+    }
+
+    let config_summary = if path.exists() {
+        format!("config: {} (ok)", path.display())
+    } else {
+        format!(
+            "config: {} (not found, built-in defaults valid)",
+            path.display()
+        )
+    };
+    let colors_summary = if colors_exists {
+        format!("colors: {} (ok)", colors_path.display())
+    } else {
+        format!("colors: {} (not found)", colors_path.display())
+    };
+
+    Ok(format!(
+        "config validation passed\n{config_summary}\n{colors_summary}\n{theme_summary}"
+    ))
+}
+
+fn resolve_runtime_config_path(path: &Path) -> Option<PathBuf> {
+    fs::canonicalize(path).ok()
 }
 
 fn switch_config(active_path: &Path, target_path: &Path) -> Result<String, ControlError> {
@@ -221,6 +330,12 @@ fn create_symlink(target: &Path, link: &Path) -> Result<(), ControlError> {
     Ok(())
 }
 
+impl ControlError {
+    fn usage_like(err: impl Display) -> Self {
+        Self::InvalidTarget(err.to_string())
+    }
+}
+
 #[cfg(not(unix))]
 fn create_symlink(_target: &Path, _link: &Path) -> Result<(), ControlError> {
     Err(ControlError::InvalidTarget(
@@ -229,7 +344,7 @@ fn create_symlink(_target: &Path, _link: &Path) -> Result<(), ControlError> {
 }
 
 fn usage() -> String {
-    "Usage:\n  kwybarsctl switch-config [--active <path>] <target-config.toml>\n  kwybarsctl --help\n\nCommands:\n  switch-config         Atomically switch the watched config path to another config file\n\nOptions:\n  -a, --active <path>   Active config path to update (default: normal Kwybars config path)\n  -h, --help            Show this help message"
+    "Usage:\n  kwybarsctl switch-config [--active <path>] <target-config.toml>\n  kwybarsctl validate-config [--config <path>]\n  kwybarsctl validate-config [path]\n  kwybarsctl --help\n\nCommands:\n  switch-config         Atomically switch the watched config path to another config file\n  validate-config       Validate config.toml, adjacent colors.toml, and configured theme\n\nOptions:\n  -a, --active <path>   Active config path to update (default: normal Kwybars config path)\n  -c, --config <path>   Config path to validate\n  -h, --help            Show this help message"
         .to_owned()
 }
 
@@ -258,5 +373,19 @@ mod tests {
     fn parses_help_command() {
         let parsed = parse_args(["--help".into()]);
         assert!(matches!(parsed, Ok(Command::Help)));
+    }
+
+    #[test]
+    fn parses_validate_config_command() {
+        let parsed = parse_args([
+            "validate-config".into(),
+            "--config".into(),
+            "/tmp/custom.toml".into(),
+        ]);
+
+        let Ok(Command::ValidateConfig { path }) = parsed else {
+            panic!("expected validate-config command");
+        };
+        assert_eq!(path, Some(PathBuf::from("/tmp/custom.toml")));
     }
 }

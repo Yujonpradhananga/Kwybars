@@ -1,5 +1,4 @@
 mod app;
-mod theme;
 mod ui;
 
 use std::path::PathBuf;

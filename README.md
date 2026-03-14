@@ -435,6 +435,21 @@ bind = SUPER ALT, 2, exec, kwybarsctl switch-config --active ~/.config/kwybars/c
 bind = SUPER ALT, 3, exec, kwybarsctl switch-config --active ~/.config/kwybars/current.toml ~/.config/kwybars/custom/my_segmented_config.toml
 ```
 
+## Validate Config
+
+`kwybarsctl validate-config` checks:
+- `config.toml` parsing
+- adjacent `colors.toml` parsing
+- configured theme resolution and theme file parsing
+
+Examples:
+
+```bash
+kwybarsctl validate-config
+kwybarsctl validate-config ~/.config/kwybars/custom/my_config.toml
+kwybarsctl validate-config --config ~/.config/kwybars/current.toml
+```
+
 ## Logging
 
 - Both `kwybars-overlay` and `kwybars-daemon` write logs to stderr and to a file.

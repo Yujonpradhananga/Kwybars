@@ -13,10 +13,9 @@ use gtk::prelude::*;
 use kwybars_common::config::{
     AppConfig, FrameMirrorMode, OverlayPosition, RgbaColor, VisualizerColorMode, VisualizerLayout,
 };
+use kwybars_common::theme::ThemePalette;
 use kwybars_engine::live::LiveFrameStream;
 use tracing::{error, info};
-
-use crate::theme::ThemePalette;
 
 #[derive(Clone, Copy, Default)]
 struct FloatingParticle {
