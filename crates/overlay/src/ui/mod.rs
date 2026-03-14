@@ -237,12 +237,14 @@ fn build_drawing_area(
                 draw::for_each_floating_particle(
                     &values,
                     &offsets_for_draw.borrow(),
-                    f64::from(width),
-                    f64::from(height),
-                    bar_thickness,
-                    gap,
-                    floating_orientation,
-                    from_start,
+                    draw::FloatingParticleLayout {
+                        width: f64::from(width),
+                        height: f64::from(height),
+                        max_radius: bar_thickness,
+                        gap,
+                        orientation: floating_orientation,
+                        from_start,
+                    },
                     |index, spec| {
                         let color = if let Some(colors) = theme_colors.as_ref() {
                             let color_idx =
