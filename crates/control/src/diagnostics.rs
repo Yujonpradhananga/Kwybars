@@ -154,6 +154,14 @@ pub fn doctor(path: &Path) -> Result<String, ControlError> {
             config.visualizer.line_mode
         ));
         lines.push(format!(
+            "visualizer.mirror_orientation: {}",
+            config.visualizer.mirror_orientation
+        ));
+        lines.push(format!(
+            "visualizer.mirror_gap: {}",
+            config.visualizer.mirror_gap
+        ));
+        lines.push(format!(
             "visualizer.color_mode: {}",
             config.visualizer.color_mode
         ));

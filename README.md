@@ -23,6 +23,7 @@ https://github.com/user-attachments/assets/5fe84372-86be-49a8-b9c0-6564e81f1eaa
 -   Custom overlay size + alignment
 -   Solid or gradient bar colors
 -   Segmented bar style (oldschool split blocks)
+-   Mirror layout for centered horizontal or vertical mirrored lines
 -   Radial layout (circular)
 -   Particle layout (pulsating dots)
 -   Frame layout for top+bottom, left+right, or all monitor edges at once
@@ -252,9 +253,11 @@ overlay_args = []
 - `monitors`: monitor selector list (connector names like `DP-1` or 1-based indices like `"1"`), used when `monitor_mode="list"`. (`monitors = ["DP-1", "HDMI-A-1"]`)
 
 `[visualizer]`
-- `layout`: layout mode: `line|frame|radial|polygon|particle|floating`.
+- `layout`: layout mode: `line|mirror|frame|radial|polygon|particle|floating`.
 - `line_mode`: line layout variant: `continuous|split` (default: `continuous`).
 - `line_split_gap`: center gap size in pixels when `line_mode="split"` (default: `200`).
+- `mirror_orientation`: center-axis mirror direction for `layout="mirror"`: `horizontal|vertical` (default: `horizontal`).
+- `mirror_gap`: empty gap in pixels between the two mirrored halves for `layout="mirror"` (default: `0`).
 - `bars`: number of bars.
 - `bar_width`: base bar thickness in pixels.
 - `bar_corner_radius`: bar corner radius in pixels (`0` = square bars).
@@ -267,8 +270,8 @@ overlay_args = []
 - `radial_start_angle`: arc start angle in degrees for `layout="radial"` (`-90` starts at the top).
 - `radial_arc_degrees`: arc span in degrees for `layout="radial"` (`360` = full ring, `180` = half circle).
 - `radial_rotation_speed`: rotation speed in degrees per second for `layout="radial"` (`0` = static, negative reverses direction).
-- `center_offset_x`: horizontal center offset in pixels for centered layouts (`radial` and `polygon`), positive moves right.
-- `center_offset_y`: vertical center offset in pixels for centered layouts (`radial` and `polygon`), positive moves down.
+- `center_offset_x`: horizontal center offset in pixels for centered layouts (`mirror`, `radial`, and `polygon`), positive moves right.
+- `center_offset_y`: vertical center offset in pixels for centered layouts (`mirror`, `radial`, and `polygon`), positive moves down.
 - `polygon_sides`: number of polygon sides for `layout="polygon"` (`3` = triangle, `4` = square, `6` = hexagon).
 - `polygon_radius`: outer polygon radius in pixels for `layout="polygon"`.
 - `polygon_rotation`: polygon rotation in degrees for `layout="polygon"` (`-90` points a triangle upward).
@@ -300,6 +303,31 @@ Example split line layout:
 layout = "line"
 line_mode = "split"
 line_split_gap = 220
+```
+
+Example horizontal mirror layout:
+
+```toml
+[visualizer]
+layout = "mirror"
+mirror_orientation = "horizontal"
+mirror_gap = 24
+line_mode = "continuous"
+center_offset_x = 0
+center_offset_y = 0
+```
+
+Example vertical mirror layout with split center gap:
+
+```toml
+[visualizer]
+layout = "mirror"
+mirror_orientation = "vertical"
+mirror_gap = 24
+line_mode = "split"
+line_split_gap = 220
+center_offset_x = 0
+center_offset_y = 0
 ```
 
 Example frame layout on all sides:

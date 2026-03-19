@@ -6,7 +6,7 @@ use std::time::Instant;
 use gtk::glib;
 use gtk::prelude::*;
 use kwybars_common::config::{
-    AppConfig, LineMode, OverlayPosition, VisualizerColorMode, VisualizerLayout,
+    AppConfig, LineMode, MirrorOrientation, OverlayPosition, VisualizerColorMode, VisualizerLayout,
 };
 use kwybars_common::theme::ThemePalette;
 use kwybars_engine::live::LiveFrameStream;
@@ -36,17 +36,23 @@ pub(super) fn build_drawing_area(
     let is_left = matches!(position, OverlayPosition::Left);
     let is_top = matches!(position, OverlayPosition::Top);
     let is_radial = config.visualizer.layout == VisualizerLayout::Radial;
+    let is_mirror = config.visualizer.layout == VisualizerLayout::Mirror;
     let is_frame = config.visualizer.layout == VisualizerLayout::Frame;
     let is_polygon = config.visualizer.layout == VisualizerLayout::Polygon;
     let is_particle = config.visualizer.layout == VisualizerLayout::Particle;
     let is_floating = config.visualizer.layout == VisualizerLayout::Floating;
     let is_centered = matches!(
         config.visualizer.layout,
-        VisualizerLayout::Frame
+        VisualizerLayout::Mirror
+            | VisualizerLayout::Frame
             | VisualizerLayout::Radial
             | VisualizerLayout::Polygon
             | VisualizerLayout::Particle
             | VisualizerLayout::Floating
+    );
+    let mirror_horizontal = matches!(
+        config.visualizer.mirror_orientation,
+        MirrorOrientation::Horizontal
     );
     let bar_thickness = f64::from(config.visualizer.bar_width.max(1));
     let corner_radius = f64::from(config.visualizer.bar_corner_radius.max(0.0));
@@ -71,6 +77,7 @@ pub(super) fn build_drawing_area(
             center_gap: f64::from(config.visualizer.line_split_gap),
         },
     };
+    let mirror_gap = f64::from(config.visualizer.mirror_gap);
     let radial_inner_radius = f64::from(config.visualizer.radial_inner_radius.max(1));
     let radial_start_angle = f64::from(config.visualizer.radial_start_angle).to_radians();
     let radial_arc_radians = f64::from(config.visualizer.radial_arc_degrees).to_radians();
@@ -85,6 +92,9 @@ pub(super) fn build_drawing_area(
         f64::from(config.visualizer.polygon_rotation_speed).to_radians();
     let frame_edges = config.visualizer.frame_edges.clone();
     let frame_mirror_mode = config.visualizer.frame_mirror_mode;
+    let overlay_full_length = config.overlay.full_length;
+    let overlay_width = f64::from(config.overlay.width.max(1));
+    let overlay_height = f64::from(config.overlay.height.max(1));
     let frame_top_thickness = f64::from(config.overlay.height.max(1));
     let frame_bottom_thickness = f64::from(config.overlay.height.max(1));
     let frame_left_thickness = f64::from(config.overlay.width.max(1));
@@ -108,18 +118,18 @@ pub(super) fn build_drawing_area(
         drawing_area.set_vexpand(true);
     } else if is_horizontal {
         drawing_area.set_content_height(to_i32(config.overlay.height));
-        if !config.overlay.full_length {
+        if !overlay_full_length {
             drawing_area.set_content_width(to_i32(config.overlay.width));
         }
-        drawing_area.set_hexpand(config.overlay.full_length);
+        drawing_area.set_hexpand(overlay_full_length);
         drawing_area.set_vexpand(false);
     } else {
         drawing_area.set_content_width(to_i32(config.overlay.width));
-        if !config.overlay.full_length {
+        if !overlay_full_length {
             drawing_area.set_content_height(to_i32(config.overlay.height));
         }
         drawing_area.set_hexpand(false);
-        drawing_area.set_vexpand(config.overlay.full_length);
+        drawing_area.set_vexpand(overlay_full_length);
     }
 
     let bar_values = Rc::new(RefCell::new(vec![0.0_f64; bar_count]));
@@ -273,6 +283,227 @@ pub(super) fn build_drawing_area(
                         }
                     },
                 );
+                return;
+            }
+
+            if is_mirror {
+                let total_width = f64::from(width);
+                let total_height = f64::from(height);
+                let (active_x, active_y, active_width, active_height) = if mirror_horizontal {
+                    let active_width = if overlay_full_length {
+                        total_width.max(1.0)
+                    } else {
+                        overlay_width.min(total_width.max(1.0))
+                    };
+                    let active_height = overlay_height.min(total_height.max(1.0));
+                    let active_x = if overlay_full_length {
+                        center_offset_x
+                    } else {
+                        ((total_width - active_width) * 0.5) + center_offset_x
+                    };
+                    let active_y = ((total_height - active_height) * 0.5) + center_offset_y;
+                    (active_x, active_y, active_width, active_height)
+                } else {
+                    let active_width = overlay_width.min(total_width.max(1.0));
+                    let active_height = if overlay_full_length {
+                        total_height.max(1.0)
+                    } else {
+                        overlay_height.min(total_height.max(1.0))
+                    };
+                    let active_x = ((total_width - active_width) * 0.5) + center_offset_x;
+                    let active_y = if overlay_full_length {
+                        center_offset_y
+                    } else {
+                        ((total_height - active_height) * 0.5) + center_offset_y
+                    };
+                    (active_x, active_y, active_width, active_height)
+                };
+
+                if let Some(colors) = theme_colors.as_ref() {
+                    if mirror_horizontal {
+                        draw::for_each_horizontal_mirror_bar_mode(
+                            &values,
+                            draw::MirrorHorizontalLayout {
+                                width: active_width,
+                                height: active_height,
+                                bar_thickness: bar_style.thickness,
+                                gap: bar_style.gap,
+                                mirror_gap,
+                                mode: line_mode,
+                            },
+                            |index, x, bar_width, half_height, half_gap| {
+                                let color_idx =
+                                    draw::bar_color_index(index, values.len(), colors.len());
+                                let color = colors[color_idx];
+                                let center_y = active_y + (active_height * 0.5);
+                                ctx.set_source_rgba(
+                                    f64::from(color.r),
+                                    f64::from(color.g),
+                                    f64::from(color.b),
+                                    f64::from(color.a),
+                                );
+                                draw::append_bar_path(
+                                    ctx,
+                                    draw::BarRect {
+                                        x: active_x + x,
+                                        y: center_y - half_gap - half_height,
+                                        width: bar_width,
+                                        height: half_height,
+                                    },
+                                    bar_style,
+                                    draw::BarOrientation::Horizontal,
+                                    false,
+                                );
+                                draw::append_bar_path(
+                                    ctx,
+                                    draw::BarRect {
+                                        x: active_x + x,
+                                        y: center_y + half_gap,
+                                        width: bar_width,
+                                        height: half_height,
+                                    },
+                                    bar_style,
+                                    draw::BarOrientation::Horizontal,
+                                    true,
+                                );
+                                if ctx.fill().is_err() {
+                                    error!("kwybars: cairo fill failed");
+                                }
+                            },
+                        );
+                    } else {
+                        draw::for_each_vertical_mirror_bar_mode(
+                            &values,
+                            draw::MirrorVerticalLayout {
+                                width: active_width,
+                                height: active_height,
+                                bar_thickness: bar_style.thickness,
+                                gap: bar_style.gap,
+                                mirror_gap,
+                                mode: line_mode,
+                            },
+                            |index, y, bar_height, half_width, half_gap| {
+                                let color_idx =
+                                    draw::bar_color_index(index, values.len(), colors.len());
+                                let color = colors[color_idx];
+                                let center_x = active_x + (active_width * 0.5);
+                                ctx.set_source_rgba(
+                                    f64::from(color.r),
+                                    f64::from(color.g),
+                                    f64::from(color.b),
+                                    f64::from(color.a),
+                                );
+                                draw::append_bar_path(
+                                    ctx,
+                                    draw::BarRect {
+                                        x: center_x - half_gap - half_width,
+                                        y: active_y + y,
+                                        width: half_width,
+                                        height: bar_height,
+                                    },
+                                    bar_style,
+                                    draw::BarOrientation::Vertical,
+                                    false,
+                                );
+                                draw::append_bar_path(
+                                    ctx,
+                                    draw::BarRect {
+                                        x: center_x + half_gap,
+                                        y: active_y + y,
+                                        width: half_width,
+                                        height: bar_height,
+                                    },
+                                    bar_style,
+                                    draw::BarOrientation::Vertical,
+                                    true,
+                                );
+                                if ctx.fill().is_err() {
+                                    error!("kwybars: cairo fill failed");
+                                }
+                            },
+                        );
+                    }
+                    return;
+                }
+
+                match bar_color_mode {
+                    VisualizerColorMode::Solid => {
+                        ctx.set_source_rgba(
+                            f64::from(bar_color.r),
+                            f64::from(bar_color.g),
+                            f64::from(bar_color.b),
+                            f64::from(bar_color.a),
+                        );
+                    }
+                    VisualizerColorMode::Gradient => {
+                        let (x0, y0, x1, y1) = if mirror_horizontal {
+                            (active_x, active_y, active_x, active_y + active_height)
+                        } else {
+                            (active_x, active_y, active_x + active_width, active_y)
+                        };
+                        let gradient = gtk::cairo::LinearGradient::new(x0, y0, x1, y1);
+                        gradient.add_color_stop_rgba(
+                            0.0,
+                            f64::from(bar_color.r),
+                            f64::from(bar_color.g),
+                            f64::from(bar_color.b),
+                            f64::from(bar_color.a),
+                        );
+                        gradient.add_color_stop_rgba(
+                            1.0,
+                            f64::from(bar_color2.r),
+                            f64::from(bar_color2.g),
+                            f64::from(bar_color2.b),
+                            f64::from(bar_color2.a),
+                        );
+                        if ctx.set_source(&gradient).is_err() {
+                            ctx.set_source_rgba(
+                                f64::from(bar_color.r),
+                                f64::from(bar_color.g),
+                                f64::from(bar_color.b),
+                                f64::from(bar_color.a),
+                            );
+                        }
+                    }
+                }
+
+                if mirror_horizontal {
+                    draw::draw_horizontal_mirror_bars_mode(
+                        ctx,
+                        &values,
+                        draw::MirrorHorizontalLayout {
+                            width: active_width,
+                            height: active_height,
+                            bar_thickness: bar_style.thickness,
+                            gap: bar_style.gap,
+                            mirror_gap,
+                            mode: line_mode,
+                        },
+                        bar_style,
+                        active_x,
+                        active_y,
+                    );
+                } else {
+                    draw::draw_vertical_mirror_bars_mode(
+                        ctx,
+                        &values,
+                        draw::MirrorVerticalLayout {
+                            width: active_width,
+                            height: active_height,
+                            bar_thickness: bar_style.thickness,
+                            gap: bar_style.gap,
+                            mirror_gap,
+                            mode: line_mode,
+                        },
+                        bar_style,
+                        active_x,
+                        active_y,
+                    );
+                }
+
+                if ctx.fill().is_err() {
+                    error!("kwybars: cairo fill failed");
+                }
                 return;
             }
 

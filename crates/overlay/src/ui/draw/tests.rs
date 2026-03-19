@@ -1,9 +1,10 @@
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
 use super::{
-    BarStyle, HorizontalBarLayout, LinearBarMode, PolygonLayout, VerticalBarLayout,
-    bar_color_index, for_each_horizontal_bar_mode, for_each_polygon_bar, for_each_segment_span,
-    for_each_vertical_bar_mode, radial_distribution,
+    BarStyle, HorizontalBarLayout, LinearBarMode, MirrorHorizontalLayout, MirrorVerticalLayout,
+    PolygonLayout, VerticalBarLayout, bar_color_index, for_each_horizontal_bar_mode,
+    for_each_horizontal_mirror_bar_mode, for_each_polygon_bar, for_each_segment_span,
+    for_each_vertical_bar_mode, for_each_vertical_mirror_bar_mode, radial_distribution,
 };
 
 #[test]
@@ -129,4 +130,82 @@ fn split_vertical_mode_leaves_center_gap() {
     let top_end = positions[1].0 + positions[1].1;
     let bottom_start = positions[2].0;
     assert!(bottom_start - top_end >= 80.0 - 1e-6);
+}
+
+#[test]
+fn horizontal_mirror_mode_uses_half_height_symmetrically() {
+    let mut measurements = Vec::new();
+    for_each_horizontal_mirror_bar_mode(
+        &[1.0, 0.5],
+        MirrorHorizontalLayout {
+            width: 200.0,
+            height: 100.0,
+            bar_thickness: 20.0,
+            gap: 10.0,
+            mirror_gap: 0.0,
+            mode: LinearBarMode::Continuous,
+        },
+        |index, _, _, half_height, _| measurements.push((index, half_height)),
+    );
+
+    assert_eq!(measurements[0], (0, 50.0));
+    assert_eq!(measurements[1], (1, 25.0));
+}
+
+#[test]
+fn vertical_mirror_mode_uses_half_width_symmetrically() {
+    let mut measurements = Vec::new();
+    for_each_vertical_mirror_bar_mode(
+        &[1.0, 0.5],
+        MirrorVerticalLayout {
+            width: 100.0,
+            height: 200.0,
+            bar_thickness: 20.0,
+            gap: 10.0,
+            mirror_gap: 0.0,
+            mode: LinearBarMode::Continuous,
+        },
+        |index, _, _, half_width, _| measurements.push((index, half_width)),
+    );
+
+    assert_eq!(measurements[0], (0, 50.0));
+    assert_eq!(measurements[1], (1, 25.0));
+}
+
+#[test]
+fn horizontal_mirror_gap_offsets_both_halves_from_center() {
+    let mut measurements = Vec::new();
+    for_each_horizontal_mirror_bar_mode(
+        &[1.0],
+        MirrorHorizontalLayout {
+            width: 200.0,
+            height: 100.0,
+            bar_thickness: 20.0,
+            gap: 10.0,
+            mirror_gap: 20.0,
+            mode: LinearBarMode::Continuous,
+        },
+        |_, _, _, half_height, half_gap| measurements.push((half_height, half_gap)),
+    );
+
+    assert_eq!(measurements, vec![(40.0, 10.0)]);
+}
+
+#[test]
+fn vertical_mirror_gap_offsets_both_halves_from_center() {
+    let mut measurements = Vec::new();
+    for_each_vertical_mirror_bar_mode(
+        &[1.0],
+        MirrorVerticalLayout {
+            width: 100.0,
+            height: 200.0,
+            bar_thickness: 20.0,
+            gap: 10.0,
+            mirror_gap: 20.0,
+            mode: LinearBarMode::Continuous,
+        },
+        |_, _, _, half_width, half_gap| measurements.push((half_width, half_gap)),
+    );
+
+    assert_eq!(measurements, vec![(40.0, 10.0)]);
 }

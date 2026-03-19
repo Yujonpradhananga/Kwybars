@@ -110,6 +110,26 @@ pub struct VerticalBarLayout {
     pub mode: LinearBarMode,
 }
 
+#[derive(Clone, Copy)]
+pub struct MirrorHorizontalLayout {
+    pub width: f64,
+    pub height: f64,
+    pub bar_thickness: f64,
+    pub gap: f64,
+    pub mirror_gap: f64,
+    pub mode: LinearBarMode,
+}
+
+#[derive(Clone, Copy)]
+pub struct MirrorVerticalLayout {
+    pub width: f64,
+    pub height: f64,
+    pub bar_thickness: f64,
+    pub gap: f64,
+    pub mirror_gap: f64,
+    pub mode: LinearBarMode,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct RadialDistribution {
     pub(crate) first_angle: f64,

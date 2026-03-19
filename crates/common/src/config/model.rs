@@ -310,6 +310,7 @@ impl Display for VisualizerColorMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VisualizerLayout {
     Line,
+    Mirror,
     Frame,
     Radial,
     Polygon,
@@ -321,6 +322,7 @@ impl VisualizerLayout {
     pub(crate) fn parse(value: &str) -> Result<Self, ConfigLoadError> {
         match value {
             "line" => Ok(Self::Line),
+            "mirror" => Ok(Self::Mirror),
             "frame" => Ok(Self::Frame),
             "radial" => Ok(Self::Radial),
             "polygon" => Ok(Self::Polygon),
@@ -337,6 +339,7 @@ impl Display for VisualizerLayout {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Line => write!(f, "line"),
+            Self::Mirror => write!(f, "mirror"),
             Self::Frame => write!(f, "frame"),
             Self::Radial => write!(f, "radial"),
             Self::Polygon => write!(f, "polygon"),
@@ -369,6 +372,33 @@ impl Display for LineMode {
         match self {
             Self::Continuous => write!(f, "continuous"),
             Self::Split => write!(f, "split"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MirrorOrientation {
+    Horizontal,
+    Vertical,
+}
+
+impl MirrorOrientation {
+    pub(crate) fn parse(value: &str) -> Result<Self, ConfigLoadError> {
+        match value {
+            "horizontal" => Ok(Self::Horizontal),
+            "vertical" => Ok(Self::Vertical),
+            _ => Err(ConfigLoadError::Parse(format!(
+                "unknown visualizer.mirror_orientation value: {value}"
+            ))),
+        }
+    }
+}
+
+impl Display for MirrorOrientation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Horizontal => write!(f, "horizontal"),
+            Self::Vertical => write!(f, "vertical"),
         }
     }
 }
@@ -409,6 +439,8 @@ pub struct VisualizerConfig {
     pub layout: VisualizerLayout,
     pub line_mode: LineMode,
     pub line_split_gap: u32,
+    pub mirror_orientation: MirrorOrientation,
+    pub mirror_gap: u32,
     pub frame_edges: Vec<OverlayPosition>,
     pub frame_mirror_mode: FrameMirrorMode,
     pub bars: usize,
@@ -448,6 +480,8 @@ impl Default for VisualizerConfig {
             layout: VisualizerLayout::Line,
             line_mode: LineMode::Continuous,
             line_split_gap: 200,
+            mirror_orientation: MirrorOrientation::Horizontal,
+            mirror_gap: 0,
             frame_edges: vec![OverlayPosition::Top, OverlayPosition::Bottom],
             frame_mirror_mode: FrameMirrorMode::Pairs,
             bars: 50,

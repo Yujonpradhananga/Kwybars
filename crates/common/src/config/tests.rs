@@ -1,8 +1,8 @@
 use super::{
-    AppConfig, DaemonConfig, FrameMirrorMode, HorizontalAlignment, LineMode, OverlayLayer,
-    OverlayMonitorMode, OverlayPosition, VerticalAlignment, VisualizerBackend, VisualizerColorMode,
-    VisualizerColorOverrides, VisualizerLayout, apply_color_overrides, parse_color_overrides,
-    parse_config,
+    AppConfig, DaemonConfig, FrameMirrorMode, HorizontalAlignment, LineMode, MirrorOrientation,
+    OverlayLayer, OverlayMonitorMode, OverlayPosition, VerticalAlignment, VisualizerBackend,
+    VisualizerColorMode, VisualizerColorOverrides, VisualizerLayout, apply_color_overrides,
+    parse_color_overrides, parse_config,
 };
 
 #[test]
@@ -29,6 +29,8 @@ fn parses_valid_config() {
         layout = "polygon"
         line_mode = "split"
         line_split_gap = 220
+        mirror_orientation = "vertical"
+        mirror_gap = 24
         frame_edges = ["top", "bottom"]
         frame_mirror_mode = "pairs"
         bars = 64
@@ -98,6 +100,11 @@ fn parses_valid_config() {
     assert_eq!(parsed.visualizer.layout, VisualizerLayout::Polygon);
     assert_eq!(parsed.visualizer.line_mode, LineMode::Split);
     assert_eq!(parsed.visualizer.line_split_gap, 220);
+    assert_eq!(
+        parsed.visualizer.mirror_orientation,
+        MirrorOrientation::Vertical
+    );
+    assert_eq!(parsed.visualizer.mirror_gap, 24);
     assert_eq!(
         parsed.visualizer.frame_edges,
         vec![OverlayPosition::Top, OverlayPosition::Bottom]
@@ -184,6 +191,11 @@ fn built_in_defaults_match_expected_no_config_setup() {
     assert_eq!(config.visualizer.layout, VisualizerLayout::Line);
     assert_eq!(config.visualizer.line_mode, LineMode::Continuous);
     assert_eq!(config.visualizer.line_split_gap, 200);
+    assert_eq!(
+        config.visualizer.mirror_orientation,
+        MirrorOrientation::Horizontal
+    );
+    assert_eq!(config.visualizer.mirror_gap, 0);
     assert_eq!(
         config.visualizer.frame_edges,
         vec![OverlayPosition::Top, OverlayPosition::Bottom]
@@ -298,8 +310,9 @@ fn display_tokens_round_trip_with_enum_parsers() {
     assert_round_trip!(OverlayMonitorMode [Primary, All, List]);
     assert_round_trip!(VisualizerBackend [Auto, Pipewire, Cava, Dummy]);
     assert_round_trip!(VisualizerColorMode [Solid, Gradient]);
-    assert_round_trip!(VisualizerLayout [Line, Frame, Radial, Polygon, Particle, Floating]);
+    assert_round_trip!(VisualizerLayout [Line, Mirror, Frame, Radial, Polygon, Particle, Floating]);
     assert_round_trip!(LineMode [Continuous, Split]);
+    assert_round_trip!(MirrorOrientation [Horizontal, Vertical]);
     assert_round_trip!(FrameMirrorMode [Off, All, Pairs]);
 }
 

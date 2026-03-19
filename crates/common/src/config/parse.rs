@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 
 use super::model::{
     AppConfig, ConfigLoadError, DaemonConfig, FrameMirrorMode, HorizontalAlignment, LineMode,
-    OverlayConfig, OverlayLayer, OverlayMonitorMode, OverlayPosition, RgbaColor, VerticalAlignment,
-    VisualizerBackend, VisualizerColorMode, VisualizerColorOverrides, VisualizerConfig,
-    VisualizerLayout,
+    MirrorOrientation, OverlayConfig, OverlayLayer, OverlayMonitorMode, OverlayPosition, RgbaColor,
+    VerticalAlignment, VisualizerBackend, VisualizerColorMode, VisualizerColorOverrides,
+    VisualizerConfig, VisualizerLayout,
 };
 
 pub fn default_config_path() -> PathBuf {
@@ -193,6 +193,8 @@ fn parse_visualizer_key(
         "layout" => visualizer.layout = VisualizerLayout::parse(value)?,
         "line_mode" => visualizer.line_mode = LineMode::parse(value)?,
         "line_split_gap" => visualizer.line_split_gap = parse_u32(key, value)?,
+        "mirror_orientation" => visualizer.mirror_orientation = MirrorOrientation::parse(value)?,
+        "mirror_gap" => visualizer.mirror_gap = parse_u32(key, value)?,
         "frame_edges" => visualizer.frame_edges = parse_overlay_position_list(value)?,
         "frame_mirror_mode" => visualizer.frame_mirror_mode = FrameMirrorMode::parse(value)?,
         "frame_mirror" => {
