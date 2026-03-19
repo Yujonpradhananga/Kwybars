@@ -290,7 +290,12 @@ fn centered_window_size(overlay: &OverlayConfig, monitor: Option<&gdk::Monitor>)
 fn uses_centered_layout(layout: VisualizerLayout) -> bool {
     matches!(
         layout,
-        VisualizerLayout::Frame | VisualizerLayout::Radial | VisualizerLayout::Polygon
+        VisualizerLayout::Mirror
+            | VisualizerLayout::Frame
+            | VisualizerLayout::Radial
+            | VisualizerLayout::Polygon
+            | VisualizerLayout::Particle
+            | VisualizerLayout::Floating
     )
 }
 
