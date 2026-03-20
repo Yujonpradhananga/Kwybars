@@ -53,8 +53,17 @@ jobs:
             sudo ldconfig
           fi
 
-      - name: Build Release
-        run: cargo build --release --workspace
+      - name: Build Optimized Release
+        run: cargo build --locked --release --workspace
+
+      - name: Show Release Binary Sizes
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ls -lh \
+            target/release/kwybars-overlay \
+            target/release/kwybars-daemon \
+            target/release/kwybarsctl
 
       - name: Package Release Tarball
         shell: bash

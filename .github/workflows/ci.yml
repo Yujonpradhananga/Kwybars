@@ -114,4 +114,4 @@ jobs:
           fi
 
       - name: Cargo Build Release
-        run: cargo build --release --workspace
+        run: cargo build --locked --release --workspace
